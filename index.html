@@ -81,10 +81,30 @@
         // Завантаження точок з JSON файлу
         async function loadPoints() {
             try {
-                // URL to raw GitHub content
+                // Додаємо лог URL
+                console.log('Fetching from:', 'https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
+                
                 const response = await fetch('https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
+                
+                // Перевіряємо статус відповіді
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                // Додаємо лог response
+                console.log('Response status:', response.status);
+                
                 const data = await response.json();
                 
+                // Додаємо лог даних
+                console.log('Loaded data:', data);
+                console.log('Number of points:', data.points ? data.points.length : 0);
+                
+                // Перевірка структури даних
+                if (!data.points || !Array.isArray(data.points)) {
+                    throw new Error('Invalid data structure: points array is missing');
+                }
+
                 document.getElementById('totalPoints').textContent = data.points.length;
 
                 data.points.forEach(point => {
@@ -140,8 +160,8 @@
                     map.fitBounds(bounds, { padding: [50, 50] });
                 }
             } catch (error) {
-                console.error('Помилка завантаження точок:', error);
-                alert('Не вдалося завантажити точки. Перевірте файл points.json');
+                console.error('Детальна помилка завантаження точок:', error);
+                alert(`Помилка завантаження точок: ${error.message}`);
             }
         }
 
