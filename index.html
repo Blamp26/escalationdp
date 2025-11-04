@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Карта з точками</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
         * {
             margin: 0;
@@ -28,6 +31,8 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
             z-index: 1000;
             max-width: 250px;
+            max-height: 60vh; /* обмеження висоти */
+            overflow-y: auto;  /* прокрутка при переповненні */
         }
         .info-panel h3 {
             margin-bottom: 10px;
@@ -58,6 +63,20 @@
             border: 1px solid #ddd;
             cursor: pointer;
         }
+
+        /* адаптація для маленьких екранiв — щоб iнтерфейс не перекривав карту */
+        @media (max-width: 600px) {
+            .info-panel {
+                position: static;
+                margin: 10px;
+                width: calc(100% - 20px);
+                max-width: none;
+                max-height: 30vh;
+            }
+            #map {
+                height: calc(100vh - 120px);
+            }
+        }
     </style>
 </head>
 <body>
@@ -68,48 +87,75 @@
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        // Ініціалізація карти (центр на Києві)
-        const map = L.map('map').setView([50.4501, 30.5234], 6);
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
-        // Додавання тайлів OpenStreetMap
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    <script>
+        // Ініціалізація плиток (базові шари)
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors',
             maxZoom: 18
-        }).addTo(map);
+        });
+
+        const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri'
+        });
+
+        // Ініціалізація карти (центр на Києві) з базовим шаром OSM
+        const map = L.map('map', {
+            center: [50.4501, 30.5234],
+            zoom: 6,
+            layers: [osm]
+        });
+
+        // Контрол для переключення шарів
+        const baseLayers = {
+            "Карта": osm,
+            "Спутник": esriSat
+        };
+
+        // Група кластерів
+        const markers = L.markerClusterGroup({
+            chunkedLoading: true,
+            // можна налаштувати appearance тут за потреби
+        });
+
+        const overlays = {
+            "Точки": markers
+        };
+
+        L.control.layers(baseLayers, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
 
         // Завантаження точок з JSON файлу
         async function loadPoints() {
             try {
-                // Додаємо лог URL
                 console.log('Fetching from:', 'https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
-                
+
                 const response = await fetch('https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
-                
-                // Перевіряємо статус відповіді
+
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                
-                // Додаємо лог response
+
                 console.log('Response status:', response.status);
-                
+
                 const data = await response.json();
-                
-                // Додаємо лог даних
+
                 console.log('Loaded data:', data);
                 console.log('Number of points:', data.points ? data.points.length : 0);
-                
-                // Перевірка структури даних
+
                 if (!data.points || !Array.isArray(data.points)) {
                     throw new Error('Invalid data structure: points array is missing');
                 }
 
                 document.getElementById('totalPoints').textContent = data.points.length;
 
+                // Очищаємо попередні маркери на випадок перезавантаження
+                markers.clearLayers();
+
                 data.points.forEach(point => {
-                    const marker = L.marker([point.lat, point.lng]).addTo(map);
-                    
+                    const marker = L.marker([point.lat, point.lng]);
+
                     // helper: escape + превращает URL и tg:// в кликабельные ссылки
                     function escapeHtml(str) {
                         return String(str)
@@ -150,14 +196,24 @@
                             ${imgsHtml}
                         </div>
                     `;
-                    
+
                     marker.bindPopup(popupContent);
+
+                    // Добавляем в группу кластеров (не на карту напрямую)
+                    markers.addLayer(marker);
                 });
 
-                // Якщо є точки, центруємо карту на них
-                if (data.points.length > 0) {
-                    const bounds = L.latLngBounds(data.points.map(p => [p.lat, p.lng]));
-                    map.fitBounds(bounds, { padding: [50, 50] });
+                // Добавляем слой кластеров на карту (если ещё не добавлен)
+                if (!map.hasLayer(markers)) {
+                    markers.addTo(map);
+                }
+
+                // Центрування карти по межах маркерів (якщо є)
+                if (markers.getLayers().length > 0) {
+                    const bounds = markers.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    }
                 }
             } catch (error) {
                 console.error('Детальна помилка завантаження точок:', error);
