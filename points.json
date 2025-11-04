@@ -1,26 +1,3 @@
 {
-  "points": [
-    {
-      "id": 1762277444193,
-      "name": "TEST_NAME",
-      "description": "TEST_DESC",
-      "lat": 48.539796,
-      "lng": 35.188522,
-      "category": "",
-      "images": [
-        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762277442191_2f6f4515-daa9-4306-b0f2-e4c657887512.png"
-      ]
-    },
-    {
-      "id": 1762278565006,
-      "name": "Каховского водохранилища",
-      "description": "https://t.me/escalation_dp/2127",
-      "lat": 47.571664858378035,
-      "lng": 35.215082325622824,
-      "category": "",
-      "images": [
-        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762278563903_0665e9d4-1f6e-4591-aa0f-c38bca3fbb6d.jpg"
-      ]
-    }
-  ]
+  "points": []
 }
