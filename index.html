@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Карта з точками</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+        .info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 250px;
+        }
+        .info-panel h3 {
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .popup-content h4 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        .popup-content p {
+            margin: 4px 0;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="info-panel">
+        <h3>📍 Статистика</h3>
+        <p>Всього точок: <strong id="totalPoints">0</strong></p>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Ініціалізація карти (центр на Києві)
+        const map = L.map('map').setView([50.4501, 30.5234], 6);
+
+        // Додавання тайлів OpenStreetMap
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 18
+        }).addTo(map);
+
+        // Завантаження точок з JSON файлу
+        async function loadPoints() {
+            try {
+                // Замініть URL на ваш GitHub raw URL
+                const response = await fetch('points.json');
+                const data = await response.json();
+                
+                document.getElementById('totalPoints').textContent = data.points.length;
+
+                data.points.forEach(point => {
+                    const marker = L.marker([point.lat, point.lng]).addTo(map);
+                    
+                    const popupContent = `
+                        <div class="popup-content">
+                            <h4>${point.name}</h4>
+                            ${point.description ? `<p>${point.description}</p>` : ''}
+                            ${point.category ? `<p><strong>Категорія:</strong> ${point.category}</p>` : ''}
+                        </div>
+                    `;
+                    
+                    marker.bindPopup(popupContent);
+                });
+
+                // Якщо є точки, центруємо карту на них
+                if (data.points.length > 0) {
+                    const bounds = L.latLngBounds(data.points.map(p => [p.lat, p.lng]));
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            } catch (error) {
+                console.error('Помилка завантаження точок:', error);
+                alert('Не вдалося завантажити точки. Перевірте файл points.json');
+            }
+        }
+
+        loadPoints();
+    </script>
+</body>
+</html>
