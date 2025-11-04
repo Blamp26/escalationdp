@@ -1,36 +1,15 @@
 {
   "points": [
     {
-      "id": 1,
-      "name": "Майдан Незалежності",
-      "description": "Центральна площа Києва",
-      "lat": 50.4501,
-      "lng": 30.5234,
-      "category": "Пам'ятки",
+      "id": 1762277444193,
+      "name": "TEST_NAME",
+      "description": "TEST_DESC",
+      "lat": 48.539796,
+      "lng": 35.188522,
+      "category": "",
       "images": [
-        "https://raw.githubusercontent.com/username/repo/main/img/maidan1.jpg",
-        "https://raw.githubusercontent.com/username/repo/main/img/maidan2.jpg"
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762277442191_2f6f4515-daa9-4306-b0f2-e4c657887512.png"
       ]
-    },
-    {
-      "id": 2,
-      "name": "Софійський собор",
-      "description": "Історична пам'ятка UNESCO",
-      "lat": 50.4527,
-      "lng": 30.5147,
-      "category": "Пам'ятки",
-      "images": [
-        "https://raw.githubusercontent.com/username/repo/main/img/sofia.jpg"
-      ]
-    },
-    {
-      "id": 3,
-      "name": "Андріївський узвіз",
-      "description": "Історична вулиця",
-      "lat": 50.4587,
-      "lng": 30.5169,
-      "category": "Туризм",
-      "images": []
     }
   ]
 }
