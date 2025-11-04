@@ -42,6 +42,22 @@
             font-size: 14px;
             color: #666;
         }
+
+        /* Додано: стиль для превью зображень у попапі */
+        .popup-images {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            flex-wrap: wrap;
+        }
+        .popup-images img {
+            width: 80px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -74,11 +90,44 @@
                 data.points.forEach(point => {
                     const marker = L.marker([point.lat, point.lng]).addTo(map);
                     
+                    // helper: escape + превращает URL и tg:// в кликабельные ссылки
+                    function escapeHtml(str) {
+                        return String(str)
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+                    }
+
+                    function linkify(text) {
+                        if (!text) return '';
+                        let t = escapeHtml(text);
+
+                        // tg:// ссылки
+                        t = t.replace(/(tg:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+                        // https?:// или www. ссылки
+                        t = t.replace(/((https?:\/\/|www\.)[^\s<]+)/g, function(m) {
+                            let url = m;
+                            if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+                            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${m}</a>`;
+                        });
+
+                        return t;
+                    }
+
+                    const descHtml = point.description ? `<p>${linkify(point.description)}</p>` : '';
+                    const imgsHtml = (point.images && point.images.length)
+                        ? `<div class="popup-images">${point.images.map(url => `<a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${point.name}"></a>`).join('')}</div>`
+                        : '';
+
                     const popupContent = `
                         <div class="popup-content">
-                            <h4>${point.name}</h4>
-                            ${point.description ? `<p>${point.description}</p>` : ''}
-                            ${point.category ? `<p><strong>Категорія:</strong> ${point.category}</p>` : ''}
+                            <h4>${escapeHtml(point.name)}</h4>
+                            ${descHtml}
+                            ${point.category ? `<p><strong>Категорія:</strong> ${escapeHtml(point.category)}</p>` : ''}
+                            ${imgsHtml}
                         </div>
                     `;
                     
