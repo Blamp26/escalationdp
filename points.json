@@ -1,0 +1,29 @@
+[
+  {
+    "id": "p1",
+    "title": "Точка 1 — район Днепра",
+    "lat": 48.52786028982028,
+    "lon": 35.18268585205079,
+    "telegram_url": "https://t.me/example_post1",
+    "image": "images/p1.jpg",
+    "description": "Пример точки вблизи Днепра."
+  },
+  {
+    "id": "p2",
+    "title": "Точка 2 — район Донецкой области",
+    "lat": 48.29532859828419,
+    "lon": 37.13418602943421,
+    "telegram_url": "https://t.me/example_post2",
+    "image": "images/p2.jpg",
+    "description": "Пример точки вблизи Донецкой области."
+  },
+  {
+    "id": "p3",
+    "title": "Точка 3 — поблизости от точки 2",
+    "lat": 48.29382963817514,
+    "lon": 37.129079103469856,
+    "telegram_url": "https://t.me/example_post3",
+    "image": "images/p3.jpg",
+    "description": "Рядом с предыдущей точкой."
+  }
+]
