@@ -1,36 +1,14 @@
 {
   "points": [
     {
-      "id": 1762278884840,
-      "name": "02.11.2025 Атака на Туапсе",
-      "description": "https://t.me/escalation_dp/2067",
-      "lat": 44.083335,
-      "lng": 39.069888,
+      "id": 1762279718022,
+      "name": "13.09.2025 ПУ Искандера недалеко от границы с Польшей",
+      "description": "https://t.me/escalation_dp/1141",
+      "lat": 54.645104,
+      "lng": 21.378826,
       "category": "",
       "images": [
-        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762278884026_photo_2025-11-02_00-02-41.jpg"
-      ]
-    },
-    {
-      "id": 1762278933560,
-      "name": "02.11.2025 Атака на Туапсе",
-      "description": "https://t.me/escalation_dp/2067?single",
-      "lat": 44.084125,
-      "lng": 39.073273,
-      "category": "",
-      "images": [
-        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762278932583_photo_2025-11-02_01-39-31.jpg"
-      ]
-    },
-    {
-      "id": 1762278953531,
-      "name": "02.11.2025 Атака на Туапсе",
-      "description": "https://t.me/escalation_dp/2067?single",
-      "lat": 44.087284,
-      "lng": 39.075773,
-      "category": "",
-      "images": [
-        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762278952666_photo_2025-11-02_01-39-31.jpg"
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762279716898____________2025-11-04_200833327.png"
       ]
     }
   ]
