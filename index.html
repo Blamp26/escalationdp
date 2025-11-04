@@ -65,8 +65,8 @@
         // Завантаження точок з JSON файлу
         async function loadPoints() {
             try {
-                // Замініть URL на ваш GitHub raw URL
-                const response = await fetch('points.json');
+                // URL to raw GitHub content
+                const response = await fetch('https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
                 const data = await response.json();
                 
                 document.getElementById('totalPoints').textContent = data.points.length;
