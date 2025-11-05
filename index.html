@@ -43,25 +43,70 @@
             color: #333;
         }
         .popup-content p {
-            margin: 4px 0;
+            margin: 8px 0;
             font-size: 14px;
             color: #666;
+            word-wrap: break-word; /* Перенос длинных слов */
         }
 
         /* Додано: стиль для превью зображень у попапі */
-        .popup-images {
-            display: flex;
-            gap: 6px;
-            margin-top: 8px;
-            flex-wrap: wrap;
+        .popup-content {
+            max-width: 300px;
+            position: relative;
+            padding: 10px;
+            padding-bottom: 45px;
         }
+        
+        /* Обновляем стили для изображений */
+        .popup-images {
+            display: block;
+            margin: 8px 0;
+            width: 100%;
+        }
+        
+        .popup-images a {
+            display: block;
+            margin-bottom: 8px;
+            width: 100%;
+        }
+        
         .popup-images img {
-            width: 80px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 4px;
-            border: 1px solid #ddd;
+            width: 100%;
+            max-height: 250px;
+            display: block;
+            object-fit: contain;
+            border-radius: 0; /* Убираем скругление углов */
+            border: none; /* Убираем рамку */
+            margin-bottom: 8px;
+        }
+        
+        /* Удаляем эффект наведения */
+        .popup-images img:hover {
+            transform: none;
+        }
+        
+        .share-button {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #007bff;
+            color: white;
+            border: none;
             cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+            z-index: 1000;
+        }
+        
+        .share-button:hover {
+            opacity: 1;
+            background: #0056b3;
         }
 
         /* адаптація для маленьких екранiв — щоб iнтерфейс не перекривав карту */
@@ -76,6 +121,40 @@
             #map {
                 height: calc(100vh - 120px);
             }
+        }
+
+        /* Стили для leaflet попапа */
+        .leaflet-popup-content {
+            margin: 0;
+            width: 300px !important;
+            overflow: hidden; /* Убираем прокрутку */
+        }
+        
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        .custom-popup .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+
+        /* Стили для ссылок в описании */
+        .popup-content p a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        
+        .popup-content p a:hover {
+            text-decoration: underline;
+        }
+        
+        .share-button {
+            position: sticky; /* Меняем на sticky */
+            bottom: 8px;
+            right: 8px;
+            float: right;
+            margin-top: 8px;
         }
     </style>
 </head>
@@ -191,19 +270,30 @@
                     const popupContent = `
                         <div class="popup-content">
                             <h4>${escapeHtml(point.name)}</h4>
-                            ${descHtml}
                             ${point.category ? `<p><strong>Категорія:</strong> ${escapeHtml(point.category)}</p>` : ''}
+                            ${descHtml}
                             ${imgsHtml}
+                            <div style="clear: both;">
+                                <button class="share-button" onclick="copyPointLink(${point.lat}, ${point.lng}, '${escapeHtml(point.name)}')">
+                                    🔗
+                                </button>
+                            </div>
                         </div>
                     `;
 
-                    marker.bindPopup(popupContent);
+                    // Обновляем параметры попапа
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 300,
+                        minWidth: 300,
+                        className: 'custom-popup',
+                        autoPanPadding: [50, 50]
+                    });
 
                     // Добавляем в группу кластеров (не на карту напрямую)
                     markers.addLayer(marker);
                 });
 
-                // Добавляем слой кластеров на карту (если ещё не добавлен)
+                // Добавляем слой кластеров на карту (если ще не добавлен)
                 if (!map.hasLayer(markers)) {
                     markers.addTo(map);
                 }
@@ -221,7 +311,48 @@
             }
         }
 
-        loadPoints();
+        // Добавить після іниціалізації карти
+        map.on('popupopen', function(e) {
+            const marker = e.popup._source;
+            const coords = marker.getLatLng();
+            history.replaceState(null, null, `#lat=${coords.lat}&lng=${coords.lng}`);
+        });
+
+        function copyPointLink(lat, lng, name) {
+            const url = `${window.location.origin}${window.location.pathname}#lat=${lat}&lng=${lng}`;
+            navigator.clipboard.writeText(url).then(() => {
+                alert('Посилання скопійовано!');
+            }).catch(err => {
+                console.error('Помилка копіювання: ', err);
+            });
+        }
+
+        // Функция для проверки хеш-параметров при загрузке
+        function checkLocationHash() {
+            const hash = window.location.hash;
+            if (hash) {
+                const params = new URLSearchParams(hash.slice(1));
+                const lat = parseFloat(params.get('lat'));
+                const lng = parseFloat(params.get('lng'));
+                
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    map.setView([lat, lng], 16);
+                    
+                    // Найти и открыть соответствующий маркер
+                    markers.eachLayer((layer) => {
+                        const markerLatLng = layer.getLatLng();
+                        if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
+                            layer.openPopup();
+                        }
+                    });
+                }
+            }
+        }
+
+        // Добавить вызов функции после loadPoints()
+        loadPoints().then(() => {
+            checkLocationHash();
+        });
     </script>
 </body>
 </html>
