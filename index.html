@@ -26,7 +26,7 @@
         .popup-content p a{color:#007bff;text-decoration:none}
         .popup-content p a:hover{text-decoration:underline}
         @media (max-width:600px){
-            .info-panel{position:static;margin:10px;width:calc(100% - 20px);max-width:none;max-height:30vh}
+            .info-panel{position:static;margin:10px;width:calc(100% - 20px);max-height:30vh}
             #map{height:calc(100vh - 120px)}
         }
     </style>
@@ -55,15 +55,15 @@
 
     // MarkerClusterGroup с chunkedLoading и более «свободной» кластеризацией
     const markers = L.markerClusterGroup({
-    chunkedLoading: true,
-    maxClusterRadius: 60,          // уменьшите, если хотите, чтобы кластеры были крупнее и не так сильно слипались
-    spiderfyDistanceMultiplier: 1.5 // увеличивает расстояние между маркерами при раскрытии «паутинкой»
+        chunkedLoading: true,
+        maxClusterRadius: 60,          // меньше = маркеры реже объединяются
+        spiderfyDistanceMultiplier: 1.5, // шире раздвигаются при раскрытии
+        disableClusteringAtZoom: 14    // выше зума 14 — маркеры отдельные
     });
 
-    // Добавляем на карту (потом повторно не добавляем)
     markers.addTo(map);
 
-    // --- Утилиты безопасного экранирования / linkify ---
+    // --- Утилиты ---
     function escapeHtml(str) {
         if (str === undefined || str === null) return '';
         return String(str)
@@ -86,7 +86,7 @@
         return t;
     }
 
-    // --- Копирование ссылки (обработчик на popupopen) ---
+    // --- Share кнопка ---
     function handleShareButtonClick(e) {
         const tgt = e.target;
         if (!tgt.classList) return;
@@ -94,29 +94,21 @@
         const lat = tgt.getAttribute('data-lat');
         const lng = tgt.getAttribute('data-lng');
         const url = `${window.location.origin}${window.location.pathname}#lat=${lat}&lng=${lng}`;
-        navigator.clipboard.writeText(url).then(() => {
-            alert('Посилання скопійовано!');
-        }).catch(err => {
-            console.error('Помилка копіювання: ', err);
-        });
+        navigator.clipboard.writeText(url).then(() => { alert('Посилання скопійовано!'); })
+            .catch(err => console.error('Помилка копіювання: ', err));
     }
 
-    // При открытии popup: обновляем hash и навешиваем слушатель на кнопку share внутри popup
     map.on('popupopen', function(e) {
         const marker = e.popup._source;
         const coords = marker.getLatLng();
         history.replaceState(null, null, `#lat=${coords.lat}&lng=${coords.lng}`);
-
-        // навесим делегированный обработчик на содержимое попапа
         const popupEl = e.popup.getElement();
         if (popupEl) {
-            // удаляем предыдущих (безопасно)
             popupEl.removeEventListener('click', handleShareButtonClick);
             popupEl.addEventListener('click', handleShareButtonClick);
         }
     });
 
-    // --- Проверка hash при загрузке ---
     function checkLocationHash() {
         const hash = window.location.hash;
         if (hash) {
@@ -125,20 +117,16 @@
             const lng = parseFloat(params.get('lng'));
             if (!isNaN(lat) && !isNaN(lng)) {
                 map.setView([lat, lng], 16);
-                // Открыть popup, если маркер найден позже (после loadPoints)
                 setTimeout(() => {
                     markers.eachLayer(layer => {
                         const ll = layer.getLatLng();
-                        if (ll && ll.lat === lat && ll.lng === lng) {
-                            layer.openPopup();
-                        }
+                        if (ll && ll.lat === lat && ll.lng === lng) layer.openPopup();
                     });
                 }, 400);
             }
         }
     }
 
-    // --- Добавление маркеров батчами (fallback) ---
     async function addInBatches(markerArray, batchSize = 500) {
         const total = markerArray.length;
         let processed = 0;
@@ -148,21 +136,18 @@
             markers.addLayers(batch);
             processed += batch.length;
             document.getElementById('progress').textContent = `Додаємо: ${processed} / ${total}`;
-            // небольшая пауза чтобы UI успел обновиться
             await new Promise(r => setTimeout(r, 25));
         }
         document.getElementById('progress').textContent = '';
     }
 
-    // --- Основная функция загрузки точек (с cache-buster и логами) ---
     async function loadPoints() {
         try {
             const url = 'https://blamp26.github.io/escalationdp/points.json';
-            const fetchUrl = url + '?_=' + Date.now(); // cache-buster
+            const fetchUrl = url + '?_=' + Date.now();
             console.log('Fetching points.json ->', fetchUrl);
 
             const response = await fetch(fetchUrl, { cache: 'no-store' });
-
             console.log('Response status:', response.status);
             console.log('Response headers:', {
                 'cache-control': response.headers.get('cache-control'),
@@ -175,24 +160,17 @@
 
             const data = await response.json();
             console.log('Loaded data:', data);
-            if (!data.points || !Array.isArray(data.points)) {
-                throw new Error('Invalid data structure: points array is missing');
-            }
+            if (!data.points || !Array.isArray(data.points)) throw new Error('Invalid data structure: points array is missing');
 
-            const n = data.points.length;
-            document.getElementById('totalPoints').textContent = n;
-
-            // очистка предыдущих маркеров
+            document.getElementById('totalPoints').textContent = data.points.length;
             markers.clearLayers();
 
-            // создаём массив L.marker (не добавляем по одному)
             const markerArray = data.points.map(point => {
                 const lat = parseFloat(point.lat);
                 const lng = parseFloat(point.lng);
                 if (isNaN(lat) || isNaN(lng)) return null;
 
                 const marker = L.marker([lat, lng]);
-
                 const descHtml = point.description ? `<p>${linkify(point.description)}</p>` : '';
                 const imgsHtml = (point.images && Array.isArray(point.images) && point.images.length)
                     ? `<div class="popup-images">${point.images.map(url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="${escapeHtml(point.name || '')}"></a>`).join('')}</div>`
@@ -209,18 +187,15 @@
                         </div>
                     </div>
                 `;
-
                 marker.bindPopup(popupContent, {
                     maxWidth: 300,
                     minWidth: 300,
                     className: 'custom-popup',
                     autoPanPadding: [50, 50]
                 });
-
                 return marker;
             }).filter(m => m !== null);
 
-            // если маркеров мало — addLayers достаточно; MarkerClusterGroup сам порционно их обработает при chunkedLoading = true
             try {
                 markers.addLayers(markerArray);
             } catch (err) {
@@ -228,26 +203,18 @@
                 await addInBatches(markerArray, 200);
             }
 
-            // Центруем карту по bounds (если есть)
             if (markers.getLayers().length > 0) {
                 const bounds = markers.getBounds();
-                if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [50, 50] });
-                }
+                if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50] });
             }
 
-            // После загрузки проверяем hash (если ссылка)
             checkLocationHash();
-
             console.log('Markers added:', markers.getLayers().length);
         } catch (error) {
             console.error('Детальна помилка завантаження точок:', error);
-            // не показываем alert при каждом небольшом глюке — оставим лог в консоли
-            // alert(`Помилка завантаження точок: ${error.message}`);
         }
     }
 
-    // Запуск загрузки (один раз при инициализации)
     loadPoints();
     </script>
 </body>
