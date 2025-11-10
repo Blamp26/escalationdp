@@ -90,6 +90,56 @@
       "images": [
         "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810518855____________2025-11-10_233512373.png"
       ]
+    },
+    {
+      "id": 1762810661402,
+      "name": "04.11.2025 ГУР ликвидировали операторов БПЛА российского подразделения «Рубикон» в Авдеевке Донецкой обл.",
+      "description": "",
+      "lat": 48.144649,
+      "lng": 37.733724,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810659889____________2025-11-10_233720502.png"
+      ]
+    },
+    {
+      "id": 1762810816212,
+      "name": "02.11.2025 В Туапсе накрыли глубоководный причал терминала по перевалке нефтепродуктов.",
+      "description": "https://t.me/escalation_dp/2065",
+      "lat": 44.083327,
+      "lng": 39.069856,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810814742____________2025-11-10_233916626.png"
+      ]
+    },
+    {
+      "id": 1762810878526,
+      "name": "02.11.2025 Удар по ТЭЦ",
+      "description": "https://t.me/escalation_dp/2060",
+      "lat": 52.988053,
+      "lng": 36.098392,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810877187____________2025-11-10_234047430.png"
+      ]
+    },
+    {
+      "id": 1762810949794,
+      "name": "02.11.2025 Туапсе. Появились кадры, где видно поражение еще двух причалов",
+      "description": "https://t.me/escalation_dp/2067",
+      "lat": 44.084117,
+      "lng": 39.073112,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810948428____________2025-11-10_234139905.png"
+      ]
+    },
+    {
+      "id": 1762810978895,
+      "name": "02.11.2025 Туапсе. Появились кадры, где видно поражение еще двух причалов",
+      "description": "https://t.me/escalation_dp/2067?single",
+      "lat": 44.087311,
+      "lng": 39.075977,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810977812____________2025-11-10_234256318.png"
+      ]
     }
   ]
 }
