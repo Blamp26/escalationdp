@@ -1,160 +1,33 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Карта з точками</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- MarkerCluster CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        }
-        #map {
-            width: 100%;
-            height: 100vh;
-        }
-        .info-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            z-index: 1000;
-            max-width: 250px;
-            max-height: 60vh; /* обмеження висоти */
-            overflow-y: auto;  /* прокрутка при переповненні */
-        }
-        .info-panel h3 {
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        .popup-content h4 {
-            margin: 0 0 8px 0;
-            color: #333;
-        }
-        .popup-content p {
-            margin: 8px 0;
-            font-size: 14px;
-            color: #666;
-            word-wrap: break-word; /* Перенос длинных слов */
-        }
-
-        /* Додано: стиль для превью зображень у попапі */
-        .popup-content {
-            max-width: 300px;
-            position: relative;
-            padding: 10px;
-            padding-bottom: 45px;
-        }
-        
-        /* Обновляем стили для изображений */
-        .popup-images {
-            display: block;
-            margin: 8px 0;
-            width: 100%;
-        }
-        
-        .popup-images a {
-            display: block;
-            margin-bottom: 8px;
-            width: 100%;
-        }
-        
-        .popup-images img {
-            width: 100%;
-            max-height: 250px;
-            display: block;
-            object-fit: contain;
-            border-radius: 0; /* Убираем скругление углов */
-            border: none; /* Убираем рамку */
-            margin-bottom: 8px;
-        }
-        
-        /* Удаляем эффект наведения */
-        .popup-images img:hover {
-            transform: none;
-        }
-        
-        .share-button {
-            position: absolute;
-            bottom: 8px;
-            right: 8px;
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0.8;
-            z-index: 1000;
-        }
-        
-        .share-button:hover {
-            opacity: 1;
-            background: #0056b3;
-        }
-
-        /* адаптація для маленьких екранiв — щоб iнтерфейс не перекривав карту */
-        @media (max-width: 600px) {
-            .info-panel {
-                position: static;
-                margin: 10px;
-                width: calc(100% - 20px);
-                max-width: none;
-                max-height: 30vh;
-            }
-            #map {
-                height: calc(100vh - 120px);
-            }
-        }
-
-        /* Стили для leaflet попапа */
-        .leaflet-popup-content {
-            margin: 0;
-            width: 300px !important;
-            overflow: hidden; /* Убираем прокрутку */
-        }
-        
-        .leaflet-popup-content-wrapper {
-            padding: 0;
-            overflow: hidden;
-        }
-        
-        .custom-popup .leaflet-popup-content-wrapper {
-            border-radius: 8px;
-        }
-
-        /* Стили для ссылок в описании */
-        .popup-content p a {
-            color: #007bff;
-            text-decoration: none;
-        }
-        
-        .popup-content p a:hover {
-            text-decoration: underline;
-        }
-        
-        .share-button {
-            position: sticky; /* Меняем на sticky */
-            bottom: 8px;
-            right: 8px;
-            float: right;
-            margin-top: 8px;
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+        #map{width:100%;height:100vh}
+        .info-panel{position:absolute;top:10px;right:10px;background:#fff;padding:15px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:1000;max-width:250px;max-height:60vh;overflow-y:auto}
+        .info-panel h3{margin-bottom:10px;font-size:16px}
+        .popup-content{max-width:300px;position:relative;padding:10px;padding-bottom:45px}
+        .popup-content h4{margin:0 0 8px 0;color:#333}
+        .popup-content p{margin:8px 0;font-size:14px;color:#666;word-wrap:break-word}
+        .popup-images{display:block;margin:8px 0;width:100%}
+        .popup-images a{display:block;margin-bottom:8px;width:100%}
+        .popup-images img{width:100%;max-height:250px;display:block;object-fit:contain;border-radius:0;border:none;margin-bottom:8px}
+        .share-button{position:sticky;bottom:8px;right:8px;float:right;margin-top:8px;width:32px;height:32px;border-radius:50%;background:#007bff;color:#fff;border:none;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;opacity:.9}
+        .leaflet-popup-content{margin:0;width:300px !important;overflow:hidden}
+        .leaflet-popup-content-wrapper{padding:0;overflow:hidden}
+        .custom-popup .leaflet-popup-content-wrapper{border-radius:8px}
+        .popup-content p a{color:#007bff;text-decoration:none}
+        .popup-content p a:hover{text-decoration:underline}
+        @media (max-width:600px){
+            .info-panel{position:static;margin:10px;width:calc(100% - 20px);max-width:none;max-height:30vh}
+            #map{height:calc(100vh - 120px)}
         }
     </style>
 </head>
@@ -163,196 +36,215 @@
     <div class="info-panel">
         <h3>📍 Статистика</h3>
         <p>Всього точок: <strong id="totalPoints">0</strong></p>
+        <p id="progress" style="font-size:13px;color:#555;margin-top:6px"></p>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- MarkerCluster JS -->
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
     <script>
-        // Ініціалізація плиток (базові шари)
-        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 18
+    // --- Базовые слои и карта ---
+    const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+    });
+    const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri' });
+
+    const map = L.map('map', { center: [50.4501, 30.5234], zoom: 6, layers: [osm] });
+    L.control.layers({ "Карта": osm, "Спутник": esriSat }, {}, { collapsed: false, position: 'topleft' }).addTo(map);
+
+    // MarkerClusterGroup с chunkedLoading
+    const markers = L.markerClusterGroup({ chunkedLoading: true });
+
+    // Добавляем на карту (потом повторно не добавляем)
+    markers.addTo(map);
+
+    // --- Утилиты безопасного экранирования / linkify ---
+    function escapeHtml(str) {
+        if (str === undefined || str === null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function linkify(text) {
+        if (!text) return '';
+        let t = escapeHtml(text);
+        t = t.replace(/(tg:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+        t = t.replace(/((https?:\/\/|www\.)[^\s<]+)/g, function(m) {
+            let url = m;
+            if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${m}</a>`;
         });
+        return t;
+    }
 
-        const esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: 'Tiles © Esri'
+    // --- Копирование ссылки (обработчик на popupopen) ---
+    function handleShareButtonClick(e) {
+        const tgt = e.target;
+        if (!tgt.classList) return;
+        if (!tgt.classList.contains('share-button')) return;
+        const lat = tgt.getAttribute('data-lat');
+        const lng = tgt.getAttribute('data-lng');
+        const url = `${window.location.origin}${window.location.pathname}#lat=${lat}&lng=${lng}`;
+        navigator.clipboard.writeText(url).then(() => {
+            alert('Посилання скопійовано!');
+        }).catch(err => {
+            console.error('Помилка копіювання: ', err);
         });
+    }
 
-        // Ініціалізація карти (центр на Києві) з базовим шаром OSM
-        const map = L.map('map', {
-            center: [50.4501, 30.5234],
-            zoom: 6,
-            layers: [osm]
-        });
+    // При открытии popup: обновляем hash и навешиваем слушатель на кнопку share внутри popup
+    map.on('popupopen', function(e) {
+        const marker = e.popup._source;
+        const coords = marker.getLatLng();
+        history.replaceState(null, null, `#lat=${coords.lat}&lng=${coords.lng}`);
 
-        // Контрол для переключення шарів
-        const baseLayers = {
-            "Карта": osm,
-            "Спутник": esriSat
-        };
-
-        // Група кластерів
-        const markers = L.markerClusterGroup({
-            chunkedLoading: true,
-            // можна налаштувати appearance тут за потреби
-        });
-
-        const overlays = {
-            "Точки": markers
-        };
-
-        L.control.layers(baseLayers, overlays, { collapsed: false, position: 'topleft' }).addTo(map);
-
-        // Завантаження точок з JSON файлу
-        async function loadPoints() {
-            try {
-                console.log('Fetching from:', 'https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
-
-                const response = await fetch('https://raw.githubusercontent.com/Blamp26/escalationdp/main/points.json');
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                console.log('Response status:', response.status);
-
-                const data = await response.json();
-
-                console.log('Loaded data:', data);
-                console.log('Number of points:', data.points ? data.points.length : 0);
-
-                if (!data.points || !Array.isArray(data.points)) {
-                    throw new Error('Invalid data structure: points array is missing');
-                }
-
-                document.getElementById('totalPoints').textContent = data.points.length;
-
-                // Очищаємо попередні маркери на випадок перезавантаження
-                markers.clearLayers();
-
-                data.points.forEach(point => {
-                    const marker = L.marker([point.lat, point.lng]);
-
-                    // helper: escape + превращает URL и tg:// в кликабельные ссылки
-                    function escapeHtml(str) {
-                        return String(str)
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;')
-                            .replace(/"/g, '&quot;')
-                            .replace(/'/g, '&#039;');
-                    }
-
-                    function linkify(text) {
-                        if (!text) return '';
-                        let t = escapeHtml(text);
-
-                        // tg:// ссылки
-                        t = t.replace(/(tg:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-
-                        // https?:// или www. ссылки
-                        t = t.replace(/((https?:\/\/|www\.)[^\s<]+)/g, function(m) {
-                            let url = m;
-                            if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
-                            return `<a href="${url}" target="_blank" rel="noopener noreferrer">${m}</a>`;
-                        });
-
-                        return t;
-                    }
-
-                    const descHtml = point.description ? `<p>${linkify(point.description)}</p>` : '';
-                    const imgsHtml = (point.images && point.images.length)
-                        ? `<div class="popup-images">${point.images.map(url => `<a href="${url}" target="_blank" rel="noopener noreferrer"><img src="${url}" alt="${point.name}"></a>`).join('')}</div>`
-                        : '';
-
-                    const popupContent = `
-                        <div class="popup-content">
-                            <h4>${escapeHtml(point.name)}</h4>
-                            ${point.category ? `<p><strong>Категорія:</strong> ${escapeHtml(point.category)}</p>` : ''}
-                            ${descHtml}
-                            ${imgsHtml}
-                            <div style="clear: both;">
-                                <button class="share-button" onclick="copyPointLink(${point.lat}, ${point.lng}, '${escapeHtml(point.name)}')">
-                                    🔗
-                                </button>
-                            </div>
-                        </div>
-                    `;
-
-                    // Обновляем параметры попапа
-                    marker.bindPopup(popupContent, {
-                        maxWidth: 300,
-                        minWidth: 300,
-                        className: 'custom-popup',
-                        autoPanPadding: [50, 50]
-                    });
-
-                    // Добавляем в группу кластеров (не на карту напрямую)
-                    markers.addLayer(marker);
-                });
-
-                // Добавляем слой кластеров на карту (если ще не добавлен)
-                if (!map.hasLayer(markers)) {
-                    markers.addTo(map);
-                }
-
-                // Центрування карти по межах маркерів (якщо є)
-                if (markers.getLayers().length > 0) {
-                    const bounds = markers.getBounds();
-                    if (bounds.isValid()) {
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                    }
-                }
-            } catch (error) {
-                console.error('Детальна помилка завантаження точок:', error);
-                alert(`Помилка завантаження точок: ${error.message}`);
-            }
+        // навесим делегированный обработчик на содержимое попапа
+        const popupEl = e.popup.getElement();
+        if (popupEl) {
+            // удаляем предыдущих (безопасно)
+            popupEl.removeEventListener('click', handleShareButtonClick);
+            popupEl.addEventListener('click', handleShareButtonClick);
         }
+    });
 
-        // Добавить після іниціалізації карти
-        map.on('popupopen', function(e) {
-            const marker = e.popup._source;
-            const coords = marker.getLatLng();
-            history.replaceState(null, null, `#lat=${coords.lat}&lng=${coords.lng}`);
-        });
-
-        function copyPointLink(lat, lng, name) {
-            const url = `${window.location.origin}${window.location.pathname}#lat=${lat}&lng=${lng}`;
-            navigator.clipboard.writeText(url).then(() => {
-                alert('Посилання скопійовано!');
-            }).catch(err => {
-                console.error('Помилка копіювання: ', err);
-            });
-        }
-
-        // Функция для проверки хеш-параметров при загрузке
-        function checkLocationHash() {
-            const hash = window.location.hash;
-            if (hash) {
-                const params = new URLSearchParams(hash.slice(1));
-                const lat = parseFloat(params.get('lat'));
-                const lng = parseFloat(params.get('lng'));
-                
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    map.setView([lat, lng], 16);
-                    
-                    // Найти и открыть соответствующий маркер
-                    markers.eachLayer((layer) => {
-                        const markerLatLng = layer.getLatLng();
-                        if (markerLatLng.lat === lat && markerLatLng.lng === lng) {
+    // --- Проверка hash при загрузке ---
+    function checkLocationHash() {
+        const hash = window.location.hash;
+        if (hash) {
+            const params = new URLSearchParams(hash.slice(1));
+            const lat = parseFloat(params.get('lat'));
+            const lng = parseFloat(params.get('lng'));
+            if (!isNaN(lat) && !isNaN(lng)) {
+                map.setView([lat, lng], 16);
+                // Открыть popup, если маркер найден позже (после loadPoints)
+                setTimeout(() => {
+                    markers.eachLayer(layer => {
+                        const ll = layer.getLatLng();
+                        if (ll && ll.lat === lat && ll.lng === lng) {
                             layer.openPopup();
                         }
                     });
-                }
+                }, 400);
             }
         }
+    }
 
-        // Добавить вызов функции после loadPoints()
-        loadPoints().then(() => {
+    // --- Добавление маркеров батчами (fallback) ---
+    async function addInBatches(markerArray, batchSize = 500) {
+        const total = markerArray.length;
+        let processed = 0;
+        document.getElementById('progress').textContent = `Додаємо: 0 / ${total}`;
+        for (let i = 0; i < markerArray.length; i += batchSize) {
+            const batch = markerArray.slice(i, i + batchSize);
+            markers.addLayers(batch);
+            processed += batch.length;
+            document.getElementById('progress').textContent = `Додаємо: ${processed} / ${total}`;
+            // небольшая пауза чтобы UI успел обновиться
+            await new Promise(r => setTimeout(r, 25));
+        }
+        document.getElementById('progress').textContent = '';
+    }
+
+    // --- Основная функция загрузки точек (с cache-buster и логами) ---
+    async function loadPoints() {
+        try {
+            const url = 'https://blamp26.github.io/escalationdp/points.json';
+            const fetchUrl = url + '?_=' + Date.now(); // cache-buster
+            console.log('Fetching points.json ->', fetchUrl);
+
+            const response = await fetch(fetchUrl, { cache: 'no-store' });
+
+            console.log('Response status:', response.status);
+            console.log('Response headers:', {
+                'cache-control': response.headers.get('cache-control'),
+                'etag': response.headers.get('etag'),
+                'age': response.headers.get('age'),
+                'x-cache': response.headers.get('x-cache')
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const data = await response.json();
+            console.log('Loaded data:', data);
+            if (!data.points || !Array.isArray(data.points)) {
+                throw new Error('Invalid data structure: points array is missing');
+            }
+
+            const n = data.points.length;
+            document.getElementById('totalPoints').textContent = n;
+
+            // очистка предыдущих маркеров
+            markers.clearLayers();
+
+            // создаём массив L.marker (не добавляем по одному)
+            const markerArray = data.points.map(point => {
+                const lat = parseFloat(point.lat);
+                const lng = parseFloat(point.lng);
+                if (isNaN(lat) || isNaN(lng)) return null;
+
+                const marker = L.marker([lat, lng]);
+
+                const descHtml = point.description ? `<p>${linkify(point.description)}</p>` : '';
+                const imgsHtml = (point.images && Array.isArray(point.images) && point.images.length)
+                    ? `<div class="popup-images">${point.images.map(url => `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"><img src="${escapeHtml(url)}" alt="${escapeHtml(point.name || '')}"></a>`).join('')}</div>`
+                    : '';
+
+                const popupContent = `
+                    <div class="popup-content">
+                        <h4>${escapeHtml(point.name || 'Без назви')}</h4>
+                        ${point.category ? `<p><strong>Категорія:</strong> ${escapeHtml(point.category)}</p>` : ''}
+                        ${descHtml}
+                        ${imgsHtml}
+                        <div style="clear:both;">
+                            <button class="share-button" data-lat="${lat}" data-lng="${lng}" data-name="${encodeURIComponent(point.name || '')}">🔗</button>
+                        </div>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent, {
+                    maxWidth: 300,
+                    minWidth: 300,
+                    className: 'custom-popup',
+                    autoPanPadding: [50, 50]
+                });
+
+                return marker;
+            }).filter(m => m !== null);
+
+            // если маркеров мало — addLayers достаточно; MarkerClusterGroup сам порционно их обработает при chunkedLoading = true
+            try {
+                markers.addLayers(markerArray);
+            } catch (err) {
+                console.warn('addLayers failed, falling back to batched addition:', err);
+                await addInBatches(markerArray, 200);
+            }
+
+            // Центруем карту по bounds (если есть)
+            if (markers.getLayers().length > 0) {
+                const bounds = markers.getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                }
+            }
+
+            // После загрузки проверяем hash (если ссылка)
             checkLocationHash();
-        });
+
+            console.log('Markers added:', markers.getLayers().length);
+        } catch (error) {
+            console.error('Детальна помилка завантаження точок:', error);
+            // не показываем alert при каждом небольшом глюке — оставим лог в консоли
+            // alert(`Помилка завантаження точок: ${error.message}`);
+        }
+    }
+
+    // Запуск загрузки (один раз при инициализации)
+    loadPoints();
     </script>
 </body>
 </html>
