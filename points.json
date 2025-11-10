@@ -40,6 +40,26 @@
       "images": [
         "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762600507010____________2025-11-08_131502854.png"
       ]
+    },
+    {
+      "id": 1762809890017,
+      "name": "Коротко о том, как ВС РФ пользуются туманом на Покровском направлении",
+      "description": "https://t.me/escalation_dp/2256",
+      "lat": 48.256588,
+      "lng": 37.203934,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762809888876____________2025-11-10_232435886.png"
+      ]
+    },
+    {
+      "id": 1762810048372,
+      "name": "Удар \"Фламинго\" по пляжу в Туапсе",
+      "description": "https://t.me/escalation_dp/2244",
+      "lat": 44.086313,
+      "lng": 39.082527,
+      "images": [
+        "https://raw.githubusercontent.com/Blamp26/escalationdp/main/img/1762810046940____________2025-11-10_232720211.png"
+      ]
     }
   ]
 }
