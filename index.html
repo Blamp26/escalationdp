@@ -53,8 +53,12 @@
     const map = L.map('map', { center: [50.4501, 30.5234], zoom: 6, layers: [osm] });
     L.control.layers({ "Карта": osm, "Спутник": esriSat }, {}, { collapsed: false, position: 'topleft' }).addTo(map);
 
-    // MarkerClusterGroup с chunkedLoading
-    const markers = L.markerClusterGroup({ chunkedLoading: true });
+    // MarkerClusterGroup с chunkedLoading и более «свободной» кластеризацией
+    const markers = L.markerClusterGroup({
+    chunkedLoading: true,
+    maxClusterRadius: 60,          // уменьшите, если хотите, чтобы кластеры были крупнее и не так сильно слипались
+    spiderfyDistanceMultiplier: 1.5 // увеличивает расстояние между маркерами при раскрытии «паутинкой»
+    });
 
     // Добавляем на карту (потом повторно не добавляем)
     markers.addTo(map);
