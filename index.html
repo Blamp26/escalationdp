@@ -56,9 +56,7 @@
     // MarkerClusterGroup с chunkedLoading и более «свободной» кластеризацией
     const markers = L.markerClusterGroup({
         chunkedLoading: true,
-        maxClusterRadius: 60,          // меньше = маркеры реже объединяются
-        spiderfyDistanceMultiplier: 1.5, // шире раздвигаются при раскрытии
-        disableClusteringAtZoom: 14    // выше зума 14 — маркеры отдельные
+        maxClusterRadius: 30,          // меньше = маркеры реже объединяются
     });
 
     markers.addTo(map);
