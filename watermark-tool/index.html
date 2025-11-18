@@ -1,668 +1,321 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aqueous - Minimalistic Watermarking</title>
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --primary-hover: #1d4ed8;
-            --bg-color: #f8fafc;
-            --surface-color: #ffffff;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-            --success-color: #059669;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            min-height: 100vh;
-            padding: 2rem;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-            background: linear-gradient(135deg, var(--primary-color), #7c3aed);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .header p {
-            color: var(--text-secondary);
-            font-size: 1.1rem;
-        }
-
-        .workflow {
-            display: grid;
-            grid-template-columns: 1fr 300px;
-            gap: 2rem;
-            background: var(--surface-color);
-            border-radius: 1rem;
-            padding: 2rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            min-height: 600px;
-        }
-
-        /* Upload Zone */
-        .upload-zone {
-            border: 2px dashed var(--border-color);
-            border-radius: 0.75rem;
-            padding: 3rem 2rem;
-            text-align: center;
-            transition: all 0.3s ease;
-            background: var(--bg-color);
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 400px;
-        }
-
-        .upload-zone.dragover {
-            border-color: var(--primary-color);
-            background-color: #eff6ff;
-        }
-
-        .upload-zone.has-file {
-            border-style: solid;
-            padding: 1rem;
-            min-height: auto;
-        }
-
-        .upload-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            color: var(--text-secondary);
-        }
-
-        .upload-zone h3 {
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .upload-zone p {
-            color: var(--text-secondary);
-            margin-bottom: 1.5rem;
-        }
-
-        .browse-btn {
-            background: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .browse-btn:hover {
-            background: var(--primary-hover);
-        }
-
-        /* Preview Canvas */
-        .preview-container {
-            position: relative;
-            display: none;
-            max-width: 100%;
-        }
-
-        #previewCanvas {
-            max-width: 100%;
-            max-height: 500px;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        }
-
-        .video-badge {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 0.25rem 0.75rem;
-            border-radius: 1rem;
-            font-size: 0.875rem;
-            font-weight: 600;
-        }
-
-        /* Style Palette */
-        .style-palette {
-            display: none;
-        }
-
-        .style-palette h3 {
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .style-grid {
-            display: grid;
-            gap: 1rem;
-        }
-
-        .style-tile {
-            border: 2px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            background: var(--surface-color);
-        }
-
-        .style-tile:hover {
-            border-color: var(--primary-color);
-        }
-
-        .style-tile.selected {
-            border-color: var(--primary-color);
-            background-color: #eff6ff;
-        }
-
-        .style-preview {
-            width: 100%;
-            height: 80px;
-            background: linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
-                        linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
-                        linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
-                        linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
-            background-size: 20px 20px;
-            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-            border-radius: 0.25rem;
-            margin-bottom: 0.5rem;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .watermark-preview {
-            position: absolute;
-            font-weight: 600;
-            color: rgba(0, 0, 0, 0.7);
-        }
-
-        .style-tile:nth-child(1) .watermark-preview {
-            bottom: 0.5rem;
-            right: 0.5rem;
-            font-size: 0.75rem;
-            opacity: 0.7;
-        }
-
-        .style-tile:nth-child(2) .watermark-preview {
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 1rem;
-            opacity: 0.9;
-        }
-
-        .style-tile:nth-child(3) .watermark-preview {
-            font-size: 0.6rem;
-            opacity: 0.5;
-            background: repeating-linear-gradient(
-                45deg,
-                transparent,
-                transparent 10px,
-                rgba(0, 0, 0, 0.1) 10px,
-                rgba(0, 0, 0, 0.1) 20px
-            );
-            padding: 0.5rem;
-            width: 100%;
-            text-align: center;
-        }
-
-        .style-tile:nth-child(4) .watermark-preview {
-            top: 0.5rem;
-            left: 0;
-            background: var(--primary-color);
-            color: white;
-            padding: 0.25rem 1rem;
-            font-size: 0.75rem;
-            border-radius: 0 0.25rem 0.25rem 0;
-        }
-
-        .style-name {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        /* Export Section */
-        .export-section {
-            grid-column: 1 / -1;
-            display: none;
-            text-align: center;
-            padding-top: 2rem;
-            border-top: 1px solid var(--border-color);
-        }
-
-        .export-btn {
-            background: var(--success-color);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .export-btn:hover {
-            background: #047857;
-            transform: translateY(-1px);
-        }
-
-        .export-loading {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-        }
-
-        .spinner {
-            width: 1.5rem;
-            height: 1.5rem;
-            border: 2px solid transparent;
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* File Info */
-        .file-info {
-            display: none;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: var(--bg-color);
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--text-secondary);
-        }
-
-        /* Responsive */
-        @media (max-width: 768px) {
-            .workflow {
-                grid-template-columns: 1fr;
-            }
-            
-            body {
-                padding: 1rem;
-            }
-        }
-
-        .hidden {
-            display: none;
-        }
-    </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Image & Watermark Studio — vertical-fill watermark</title>
+<style>
+  :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
+  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,Arial;background:linear-gradient(180deg,#081224 0%, #071423 100%);color:#e6eef6}
+  .app{max-width:1100px;margin:28px auto;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 6px 30px rgba(2,6,23,0.7)}
+  header{display:flex;gap:12px;align-items:center}
+  h1{font-size:20px;margin:0}
+  .layout{display:grid;grid-template-columns:380px 1fr;gap:18px;margin-top:16px}
+  .panel{background:var(--card);padding:12px;border-radius:10px}
+  label{display:block;font-size:13px;margin:8px 0 6px;color:var(--muted)}
+  input[type=file]{width:100%}
+  select,input,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  .row{display:flex;gap:8px}
+  .preview-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+  #previewCanvas{background:#08121a;border-radius:6px;max-width:100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02)}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .muted{color:var(--muted);font-size:13px}
+  .btn{background:linear-gradient(90deg,var(--accent),#3b82f6);border:none;color:#05233a;padding:8px;border-radius:8px;cursor:pointer}
+  .small{font-size:13px;padding:6px}
+  .footer{margin-top:10px;font-size:13px;color:var(--muted)}
+  .watermark-list{display:flex;gap:8px}
+  .wm-thumb{width:60px;height:40px;border-radius:6px;object-fit:contain;cursor:pointer;border:2px solid transparent}
+  .wm-thumb.selected{border-color:#60a5fa}
+  .hint{font-size:12px;color:#9fb0c8}
+</style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Aqueous</h1>
-            <p>Seamless watermarking with professional results</p>
-        </div>
+<div class="app">
+  <header>
+    <h1>Image & Watermark Studio</h1>
+    <div class="muted">Водяной знак всегда по центру и заполняет по вертикали (может выходить за стороны по горизонтали).</div>
+  </header>
 
-        <div class="workflow">
-            <!-- Main Content Area -->
-            <div class="content-area">
-                <div class="upload-zone" id="uploadZone">
-                    <div class="upload-icon">📁</div>
-                    <h3>Drag & Drop your media here</h3>
-                    <p>Supports JPG, PNG, WEBP, MP4, MOV, AVI (Max 100MB)</p>
-                    <button class="browse-btn" id="browseBtn">Browse Files</button>
-                    <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
-                </div>
+  <div class="layout">
+    <div class="panel" style="height:720px;overflow:auto">
+      <label>1) Загрузите фото</label>
+      <input id="fileInput" type="file" accept="image/*,video/*" />
+      <div class="hint">Поддерживаемые форматы: JPEG, PNG, WebP. Видео: MP4/WebM (используется как источник для превью/видео-экспорта).</div>
 
-                <div class="preview-container" id="previewContainer">
-                    <canvas id="previewCanvas"></canvas>
-                    <div class="video-badge hidden" id="videoBadge">VIDEO</div>
-                </div>
+      <label>2) Выберите водяной знак</label>
+      <div class="watermark-list" id="wmList">
+        <!-- thumbnails populated by script -->
+      </div>
+      <label class="muted">Или загрузите свой файл вотермарки (ожидается 1920×1080). Он будет масштабироваться так, чтобы заполнять высоту фото.</label>
+      <input id="wmUpload" type="file" accept="image/*" />
 
-                <div class="file-info" id="fileInfo">
-                    <!-- File details will be populated here -->
-                </div>
-            </div>
+      <label>Настройки</label>
+      <div class="muted">Прозрачность и ручная настройка размера отключены: вотермарка автоматически масштабируется по высоте исходного изображения и центрируется.</div>
 
-            <!-- Style Palette -->
-            <div class="style-palette" id="stylePalette">
-                <h3>Watermark Style</h3>
-                <div class="style-grid">
-                    <div class="style-tile selected" data-style="subtle">
-                        <div class="style-preview">
-                            <div class="watermark-preview">yourbrand.com</div>
-                        </div>
-                        <div class="style-name">Subtle Text</div>
-                    </div>
-                    <div class="style-tile" data-style="bold">
-                        <div class="style-preview">
-                            <div class="watermark-preview">YOUR BRAND</div>
-                        </div>
-                        <div class="style-name">Bold Centered</div>
-                    </div>
-                    <div class="style-tile" data-style="tiled">
-                        <div class="style-preview">
-                            <div class="watermark-preview">Your Brand • Your Brand • Your Brand</div>
-                        </div>
-                        <div class="style-name">Tiled Pattern</div>
-                    </div>
-                    <div class="style-tile" data-style="banner">
-                        <div class="style-preview">
-                            <div class="watermark-preview">PROTECTED CONTENT</div>
-                        </div>
-                        <div class="style-name">Corner Banner</div>
-                    </div>
-                </div>
-            </div>
+      <label>Экспорт</label>
+      <div class="row">
+        <button class="btn" id="exportImage">Экспорт PNG</button>
+        <button class="btn" id="exportJpeg">Экспорт JPEG</button>
+      </div>
+      <div style="height:8px"></div>
+      <div class="row">
+        <button class="btn" id="exportVideo">Экспорт WebM (3s анимация)</button>
+        <button class="small" id="reset">Сброс</button>
+      </div>
 
-            <!-- Export Section -->
-            <div class="export-section" id="exportSection">
-                <button class="export-btn" id="exportBtn">
-                    <span class="btn-text">Export Flawlessly</span>
-                    <div class="export-loading">
-                        <div class="spinner"></div>
-                        <span>Processing...</span>
-                    </div>
-                </button>
-            </div>
-        </div>
+      <div class="footer">Водяной знак будет располагаться строго по центру вертикали. Для корректной работы внешние изображения должны иметь CORS-заголовки.</div>
     </div>
 
-    <script>
-        class AqueousWatermarker {
-            constructor() {
-                this.canvas = document.getElementById('previewCanvas');
-                this.ctx = this.canvas.getContext('2d');
-                this.currentFile = null;
-                this.currentStyle = 'subtle';
-                this.isVideo = false;
-                
-                this.initializeEventListeners();
-            }
+    <div class="panel preview-wrap">
+      <label class="muted">Превью</label>
+      <div id="previewHolder" style="width:100%;height:640px;display:flex;align-items:center;justify-content:center;position:relative;padding:0;margin:0">
+        <canvas id="previewCanvas"></canvas>
+        <div id="overlayHint" style="position:absolute;right:8px;bottom:8px;background:rgba(2,6,23,0.6);padding:6px;border-radius:6px;font-size:12px;color:var(--muted)">Водяной знак центрируется и масштабируется по высоте</div>
+      </div>
 
-            initializeEventListeners() {
-                const uploadZone = document.getElementById('uploadZone');
-                const fileInput = document.getElementById('fileInput');
-                const browseBtn = document.getElementById('browseBtn');
-                const styleTiles = document.querySelectorAll('.style-tile');
-                const exportBtn = document.getElementById('exportBtn');
+      <div style="width:100%;display:flex;gap:8px;margin-top:10px;align-items:center">
+        <div style="flex:1">
+          <div class="muted">Изображение:</div>
+          <div id="imageInfo" class="muted">No image loaded</div>
+        </div>
+        <div style="width:220px">
+          <div class="muted">Водяной знак (центр)</div>
+          <div id="posInfo" class="muted">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-                // Drag and drop events
-                uploadZone.addEventListener('dragover', (e) => {
-                    e.preventDefault();
-                    uploadZone.classList.add('dragover');
-                });
+<script>
+const watermarkPaths = [
+  'watermark-tool/watermarks/watermark1.png',
+  'watermark-tool/watermarks/watermark2.png'
+];
 
-                uploadZone.addEventListener('dragleave', () => {
-                    uploadZone.classList.remove('dragover');
-                });
+// UI refs
+const fileInput = document.getElementById('fileInput');
+const previewCanvas = document.getElementById('previewCanvas');
+const previewCtx = previewCanvas.getContext('2d');
+const wmList = document.getElementById('wmList');
+const wmUpload = document.getElementById('wmUpload');
+const exportImageBtn = document.getElementById('exportImage');
+const exportJpegBtn = document.getElementById('exportJpeg');
+const exportVideoBtn = document.getElementById('exportVideo');
+const resetBtn = document.getElementById('reset');
+const imageInfo = document.getElementById('imageInfo');
+const posInfo = document.getElementById('posInfo');
 
-                uploadZone.addEventListener('drop', (e) => {
-                    e.preventDefault();
-                    uploadZone.classList.remove('dragover');
-                    const file = e.dataTransfer.files[0];
-                    if (file) this.handleFileSelect(file);
-                });
+let srcImage = null;
+let srcVideo = null;
+let watermarkImg = null;
+let watermarkSelection = null;
+let srcWidth = 0, srcHeight = 0;
+let offscreenCanvas = document.createElement('canvas');
+let offscreenCtx = offscreenCanvas.getContext('2d');
 
-                // File input events
-                browseBtn.addEventListener('click', () => fileInput.click());
-                fileInput.addEventListener('change', (e) => {
-                    if (e.target.files[0]) this.handleFileSelect(e.target.files[0]);
-                });
+// watermark state (fixed)
+const wmState = {opacity:1, rotation:0};
+let previewScale = 1;
 
-                // Style selection
-                styleTiles.forEach(tile => {
-                    tile.addEventListener('click', () => {
-                        styleTiles.forEach(t => t.classList.remove('selected'));
-                        tile.classList.add('selected');
-                        this.currentStyle = tile.dataset.style;
-                        this.applyWatermark();
-                    });
-                });
+function createWatermarkThumbnails(){
+  watermarkPaths.forEach((p,i)=>{
+    const img = document.createElement('img');
+    img.src = p;
+    img.className = 'wm-thumb';
+    img.title = p;
+    img.onclick = ()=>selectWatermark(p,img);
+    wmList.appendChild(img);
+  });
+}
 
-                // Export
-                exportBtn.addEventListener('click', () => this.handleExport());
-            }
+function selectWatermark(path,thumbEl){
+  watermarkSelection = {type:'path',src:path};
+  document.querySelectorAll('.wm-thumb').forEach(t=>t.classList.remove('selected'));
+  if(thumbEl) thumbEl.classList.add('selected');
+  loadWatermark(path);
+}
 
-            handleFileSelect(file) {
-                if (!file.type.match('image.*') && !file.type.match('video.*')) {
-                    alert('Please select an image or video file.');
-                    return;
-                }
+function loadWatermark(src){
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = ()=>{
+    watermarkImg = img;
+    renderPreview();
+  };
+  img.onerror = ()=>{ alert('Не удалось загрузить вотермарку: '+src); }
+  if(typeof src === 'string') img.src = src;
+  else img.src = URL.createObjectURL(src);
+}
 
-                this.currentFile = file;
-                this.isVideo = file.type.match('video.*');
-                
-                this.updateUI();
-                this.loadPreview();
-            }
+wmUpload.addEventListener('change', e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  watermarkSelection = {type:'file',file:f};
+  loadWatermark(f);
+});
 
-            updateUI() {
-                const uploadZone = document.getElementById('uploadZone');
-                const previewContainer = document.getElementById('previewContainer');
-                const stylePalette = document.getElementById('stylePalette');
-                const exportSection = document.getElementById('exportSection');
-                const fileInfo = document.getElementById('fileInfo');
-                const videoBadge = document.getElementById('videoBadge');
+fileInput.addEventListener('change', async e=>{
+  const f = e.target.files[0];
+  if(!f) return;
+  const url = URL.createObjectURL(f);
+  if(f.type.startsWith('image/')){
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      srcImage = img;
+      srcWidth = img.naturalWidth;
+      srcHeight = img.naturalHeight;
+      offscreenCanvas.width = srcWidth; offscreenCanvas.height = srcHeight;
+      updateInfo(); fitPreviewCanvas(); renderPreview();
+    };
+    img.src = url;
+  } else if(f.type.startsWith('video/')){
+    const vid = document.createElement('video');
+    vid.src = url; vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
+    vid.onloadeddata = ()=>{
+      srcVideo = vid;
+      srcWidth = vid.videoWidth; srcHeight = vid.videoHeight;
+      offscreenCanvas.width = srcWidth; offscreenCanvas.height = srcHeight;
+      updateInfo(); fitPreviewCanvas(); renderPreview(); vid.play();
+    }
+  }
+});
 
-                uploadZone.classList.add('has-file');
-                uploadZone.innerHTML = `
-                    <div style="text-align: center;">
-                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
-                        <h3>File Ready</h3>
-                        <p>${this.currentFile.name}</p>
-                    </div>
-                `;
+function fitPreviewCanvas(){
+  const holder = document.getElementById('previewHolder');
+  const maxW = holder.clientWidth-0; // no offset
+  const maxH = 640-0;
+  if(!srcWidth || !srcHeight){ previewCanvas.width = 800; previewCanvas.height = 450; previewScale = 1; return; }
+  const scale = Math.min(maxW/srcWidth, maxH/srcHeight, 1);
+  previewScale = scale;
+  previewCanvas.width = Math.round(srcWidth*scale);
+  previewCanvas.height = Math.round(srcHeight*scale);
+  previewCanvas.style.width = previewCanvas.width+'px';
+  previewCanvas.style.height = previewCanvas.height+'px';
+}
 
-                previewContainer.style.display = 'block';
-                stylePalette.style.display = 'block';
-                exportSection.style.display = 'block';
+function updateInfo(){
+  if(srcWidth) imageInfo.textContent = `Source: ${srcWidth} × ${srcHeight} px`;
+  else imageInfo.textContent = 'No image loaded';
+}
 
-                fileInfo.style.display = 'block';
-                fileInfo.innerHTML = `
-                    <strong>File:</strong> ${this.currentFile.name}<br>
-                    <strong>Type:</strong> ${this.currentFile.type}<br>
-                    <strong>Size:</strong> ${this.formatFileSize(this.currentFile.size)}
-                `;
+function clearPreview(){ previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height); }
 
-                if (this.isVideo) {
-                    videoBadge.classList.remove('hidden');
-                } else {
-                    videoBadge.classList.add('hidden');
-                }
-            }
+// New behaviour: watermark scales to MATCH image height (fills vertically). It may overflow horizontally.
+function computeWatermarkFit(){
+  if(!watermarkImg || !srcWidth || !srcHeight) return null;
+  // scale so watermark height equals source height
+  const scaleFactor = srcHeight / watermarkImg.naturalHeight;
+  const w = Math.round(watermarkImg.naturalWidth * scaleFactor);
+  const h = Math.round(watermarkImg.naturalHeight * scaleFactor); // should equal srcHeight (rounding aside)
+  return {w,h};
+}
 
-            loadPreview() {
-                const reader = new FileReader();
+function renderPreview(){
+  clearPreview();
+  if(!srcWidth || !srcHeight) return;
+  if(srcImage) previewCtx.drawImage(srcImage, 0, 0, srcWidth*previewScale, srcHeight*previewScale);
+  else if(srcVideo){ try{ previewCtx.drawImage(srcVideo,0,0,srcWidth*previewScale,srcHeight*previewScale); } catch(e){} }
 
-                reader.onload = (e) => {
-                    if (this.isVideo) {
-                        this.loadVideoPreview(e.target.result);
-                    } else {
-                        this.loadImagePreview(e.target.result);
-                    }
-                };
+  if(!watermarkImg) return;
+  const fit = computeWatermarkFit();
+  if(!fit) return;
+  // display sizes
+  const displayW = fit.w * previewScale;
+  const displayH = fit.h * previewScale; // ~ srcHeight*previewScale
 
-                reader.readAsDataURL(this.currentFile);
-            }
+  // center in preview coords
+  const cx = previewCanvas.width/2;
+  const cy = previewCanvas.height/2;
 
-            loadImagePreview(dataUrl) {
-                const img = new Image();
-                img.onload = () => {
-                    // Set canvas dimensions to match image (max 800px width/height for preview)
-                    const maxDimension = 800;
-                    let width = img.width;
-                    let height = img.height;
+  previewCtx.save();
+  previewCtx.globalAlpha = wmState.opacity; // always 1
+  previewCtx.globalCompositeOperation = 'source-over';
+  previewCtx.translate(cx, cy);
+  previewCtx.rotate(wmState.rotation * Math.PI/180);
+  previewCtx.drawImage(watermarkImg, -displayW/2, -displayH/2, displayW, displayH);
+  previewCtx.restore();
 
-                    if (width > maxDimension || height > maxDimension) {
-                        const ratio = Math.min(maxDimension / width, maxDimension / height);
-                        width *= ratio;
-                        height *= ratio;
-                    }
+  posInfo.textContent = `center x:${Math.round(srcWidth/2)} y:${Math.round(srcHeight/2)} — size ${fit.w}×${fit.h}`;
+}
 
-                    this.canvas.width = width;
-                    this.canvas.height = height;
+function compositeToOffscreen(customDrawCallback){
+  if(!srcWidth || !srcHeight) throw new Error('No source loaded');
+  offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
+  if(srcImage) offscreenCtx.drawImage(srcImage, 0, 0, srcWidth, srcHeight);
+  else if(srcVideo){ try{ offscreenCtx.drawImage(srcVideo,0,0,srcWidth,srcHeight); } catch(e){} }
 
-                    this.ctx.drawImage(img, 0, 0, width, height);
-                    this.applyWatermark();
-                };
-                img.src = dataUrl;
-            }
+  if(watermarkImg){
+    const fit = computeWatermarkFit();
+    const w = fit.w; const h = fit.h; // h ≈ srcHeight
+    offscreenCtx.save();
+    offscreenCtx.globalAlpha = wmState.opacity; // 1
+    offscreenCtx.globalCompositeOperation = 'source-over';
+    offscreenCtx.translate(srcWidth/2, srcHeight/2);
+    offscreenCtx.rotate(wmState.rotation * Math.PI/180);
+    offscreenCtx.drawImage(watermarkImg, -w/2, -h/2, w, h);
+    offscreenCtx.restore();
+  }
+  if(typeof customDrawCallback === 'function') customDrawCallback(offscreenCtx);
+}
 
-            loadVideoPreview(dataUrl) {
-                const video = document.createElement('video');
-                video.src = dataUrl;
-                video.currentTime = 0.1; // Get a frame early to avoid black frames
+exportImageBtn.addEventListener('click', ()=>{
+  try{ if(!srcWidth) return alert('No source loaded'); compositeToOffscreen(); offscreenCanvas.toBlob(blob=>{ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'watermarked.png'; a.click(); }, 'image/png'); }catch(e){ alert('Export failed: '+e.message); }
+});
 
-                video.addEventListener('loadeddata', () => {
-                    // Set canvas dimensions to match video (max 800px)
-                    const maxDimension = 800;
-                    let width = video.videoWidth;
-                    let height = video.videoHeight;
+exportJpegBtn.addEventListener('click', ()=>{
+  try{ if(!srcWidth) return alert('No source loaded'); compositeToOffscreen(); offscreenCanvas.toBlob(blob=>{ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'watermarked.jpg'; a.click(); }, 'image/jpeg', 0.92); }catch(e){ alert('Export failed: '+e.message); }
+});
 
-                    if (width > maxDimension || height > maxDimension) {
-                        const ratio = Math.min(maxDimension / width, maxDimension / height);
-                        width *= ratio;
-                        height *= ratio;
-                    }
+exportVideoBtn.addEventListener('click', ()=>{
+  if(!srcWidth) return alert('No source loaded'); exportVideo({duration:3000, fps:30}).then(url=>{ const a = document.createElement('a'); a.href = url; a.download = 'watermarked.webm'; a.click(); }).catch(e=>alert('Video export failed: '+e.message));
+});
 
-                    this.canvas.width = width;
-                    this.canvas.height = height;
+async function exportVideo({duration=3000,fps=30} = {}){
+  return new Promise((resolve,reject)=>{
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = srcWidth; tempCanvas.height = srcHeight;
+    const tctx = tempCanvas.getContext('2d');
+    const totalFrames = Math.round(duration/1000 * fps);
+    let currentFrame = 0;
+    const baseRotation = wmState.rotation;
 
-                    video.addEventListener('seeked', () => {
-                        this.ctx.drawImage(video, 0, 0, width, height);
-                        this.applyWatermark();
-                    });
-                });
-            }
+    // compute fit once (height-fill)
+    const fit = computeWatermarkFit();
+    const startScale = 0.995; const endScale = 1.005; // very subtle pulse
 
-            applyWatermark() {
-                if (!this.currentFile) return;
+    const stream = tempCanvas.captureStream(fps);
+    const recordedChunks = [];
+    let recorder;
+    try{ recorder = new MediaRecorder(stream, {mimeType: 'video/webm; codecs=vp9'}); }catch(err){ try{ recorder = new MediaRecorder(stream, {mimeType: 'video/webm; codecs=vp8'}); }catch(e){ return reject(err); }}
+    recorder.ondataavailable = ev=>{ if(ev.data && ev.data.size) recordedChunks.push(ev.data); };
+    recorder.onstop = ()=>{ const blob = new Blob(recordedChunks, {type:'video/webm'}); const url = URL.createObjectURL(blob); resolve(url); };
+    recorder.start();
 
-                // Redraw the original image/video frame first
-                this.loadPreview();
+    function drawFrame(){
+      const t = currentFrame/Math.max(1,totalFrames-1);
+      const ease = (1 - Math.cos(Math.PI * t)) / 2;
+      if(srcImage) tctx.drawImage(srcImage,0,0,srcWidth,srcHeight);
+      else if(srcVideo){ try{ tctx.drawImage(srcVideo,0,0,srcWidth,srcHeight); }catch(e){} }
+      // watermark subtle scale pulse around full-height
+      const scale = startScale + (endScale-startScale)*ease;
+      if(watermarkImg){
+        const w = Math.round(fit.w * scale);
+        const h = Math.round(fit.h * scale);
+        tctx.save(); tctx.globalAlpha = wmState.opacity; tctx.globalCompositeOperation = 'source-over'; tctx.translate(srcWidth/2, srcHeight/2); tctx.rotate(baseRotation * Math.PI/180); tctx.drawImage(watermarkImg, -w/2, -h/2, w, h); tctx.restore();
+      }
+      currentFrame++;
+      if(currentFrame <= totalFrames) requestAnimationFrame(drawFrame);
+      else setTimeout(()=>{ recorder.stop(); }, 200);
+    }
+    drawFrame();
+  });
+}
 
-                // Then apply watermark based on current style
-                setTimeout(() => {
-                    const width = this.canvas.width;
-                    const height = this.canvas.height;
+resetBtn.addEventListener('click', ()=>{ srcImage=null; srcVideo=null; watermarkImg=null; watermarkSelection=null; srcWidth=0; srcHeight=0; offscreenCanvas.width=offscreenCanvas.height=1; previewCanvas.width=previewCanvas.height=1; imageInfo.textContent='No image loaded'; posInfo.textContent='-'; document.querySelectorAll('.wm-thumb').forEach(t=>t.classList.remove('selected')); });
 
-                    this.ctx.font = '600 24px Inter, sans-serif';
-                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-                    this.ctx.lineWidth = 2;
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-
-                    const watermarkText = 'yourbrand.com';
-
-                    switch (this.currentStyle) {
-                        case 'subtle':
-                            this.ctx.font = '600 18px Inter, sans-serif';
-                            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-                            this.ctx.textAlign = 'right';
-                            this.ctx.fillText(watermarkText, width - 20, height - 20);
-                            break;
-
-                        case 'bold':
-                            this.ctx.font = '600 32px Inter, sans-serif';
-                            this.ctx.strokeText(watermarkText, width / 2, height / 2);
-                            this.ctx.fillText(watermarkText, width / 2, height / 2);
-                            break;
-
-                        case 'tiled':
-                            this.ctx.font = '600 16px Inter, sans-serif';
-                            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-                            for (let x = 50; x < width; x += 200) {
-                                for (let y = 50; y < height; y += 100) {
-                                    this.ctx.fillText(watermarkText, x, y);
-                                }
-                            }
-                            break;
-
-                        case 'banner':
-                            this.ctx.font = '600 18px Inter, sans-serif';
-                            this.ctx.fillStyle = '#2563eb';
-                            this.ctx.fillRect(0, 20, this.ctx.measureText(watermarkText).width + 40, 40);
-                            this.ctx.fillStyle = 'white';
-                            this.ctx.fillText(watermarkText, 20, 40);
-                            break;
-                    }
-                }, 100);
-            }
-
-            async handleExport() {
-                const exportBtn = document.getElementById('exportBtn');
-                const btnText = exportBtn.querySelector('.btn-text');
-                const loading = exportBtn.querySelector('.export-loading');
-
-                btnText.style.display = 'none';
-                loading.style.display = 'flex';
-
-                // Simulate processing time
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                // Create download link
-                const link = document.createElement('a');
-                link.download = `watermarked_${this.currentFile.name.split('.')[0]}.${this.isVideo ? 'mp4' : 'png'}`;
-                
-                if (this.isVideo) {
-                    // For video, we'd typically send to server for processing
-                    // Here we'll just download the original file as a simulation
-                    link.href = URL.createObjectURL(this.currentFile);
-                } else {
-                    link.href = this.canvas.toDataURL('image/png');
-                }
-
-                link.click();
-
-                // Reset button state
-                btnText.style.display = 'block';
-                loading.style.display = 'none';
-
-                // Show success message
-                alert('File exported successfully with flawless quality!');
-            }
-
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-        }
-
-        // Initialize the application when DOM is loaded
-        document.addEventListener('DOMContentLoaded', () => {
-            new AqueousWatermarker();
-        });
-    </script>
+createWatermarkThumbnails(); updateInfo();
+</script>
 </body>
 </html>
