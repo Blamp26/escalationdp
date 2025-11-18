@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
 <meta charset="UTF-8">
 <title>Single Watermark • Perfect Color • Zero Artifacts</title>
@@ -29,12 +29,6 @@
   .wm-btn.active {
     background: #007bff; color: white; border-color: #007bff; font-weight: bold;
   }
-  /* === MODIFIED: Removed styles for controls that no longer exist === */
-  /*
-  .control-row { margin: 20px 0; }
-  label { display: block; margin: 15px 0 8px; font-weight: 600; font-size: 1.1em; }
-  input[type=range] { width: 100%; height: 10px; border-radius: 5px; background: #ddd; outline: none; }
-  */
   button#mainBtn {
     background: #007bff; color: white; border: none; padding: 16px 40px; font-size: 1.1em;
     border-radius: 12px; cursor: pointer; margin-top: 10px;
@@ -45,49 +39,62 @@
     max-height: 70vh; 
     border-radius: 16px; 
     box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
-    background: #eee; /* BG for canvas */
+    background: #eee; 
   }
   .hidden { display: none; }
 </style>
 </head>
 <body>
 
-<h1>Professional Single Watermark Tool</h1>
-<p>Perfect colors • Zero artifacts</p>
+<h1>Профессиональный Инструмент Водяных Знаков</h1>
+<p>Идеальные цвета • Нулевые артефакты</p>
 
 <div class="drop-zone" id="dropZone">
-  Drop your photo or video here<br>or click to select
+  Перетащите ваше фото или видео сюда<br>или нажмите, чтобы выбрать
   <input type="file" id="fileInput" accept="image/*,video/*" style="display:none">
 </div>
 
 <div class="controls hidden" id="controls">
   <div class="wm-choice">
-    <button type="button" class="wm-btn active" data-wm="1">Watermark Version 1</button>
-    <button type="button" class="wm-btn" data-wm="2">Watermark Version 2</button>
+    <button type="button" class="wm-btn active" data-wm="1">Водяной знак 1</button>
+    <button type="button" class="wm-btn" data-wm="2">Водяной знак 2</button>
   </div>
 
-  <button id="mainBtn">Download Watermarked File</button>
+  <button id="mainBtn">Скачать файл с водяным знаком</button>
   <div id="progress" style="margin-top:15px; font-weight:bold;"></div>
 </div>
 
 <div class="preview hidden" id="preview"></div>
 
 <script>
-// ==================== WATERMARKS ====================
+// ==================== КОНСТАНТЫ И ПЕРЕМЕННЫЕ ====================
 const WM1_SRC = 'watermarks/watermark1.png';
 const WM2_SRC = 'watermarks/watermark2.png';
 
-// === NEW: Hardcoded values for removed controls ===
+// Жестко заданные значения (поскольку элементы управления удалены)
 const DEFAULT_SIZE_PCT = 0.7; // 70%
 const DEFAULT_OPACITY = 0.8;  // 80%
 
 let wm1, wm2, activeWm = 1;
 let currentFile, isImage = false;
 
-// Preload both
-Promise.all([loadImage(WM1_SRC), loadImage(WM2_SRC)])
-  .then(imgs => { wm1 = imgs[0]; wm2 = imgs[1]; })
-  .catch(err => alert('Watermarks not found! Place watermark1.png and watermark2.png in /watermarks/'));
+// UI элементы
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const controls = document.getElementById('controls');
+const previewDiv = document.getElementById('preview');
+const mainBtn = document.getElementById('mainBtn');
+const progress = document.getElementById('progress');
+
+// Элементы предпросмотра видео
+let previewVideoElement = null;
+let videoPreviewActive = false;
+let previewCanvas = document.createElement('canvas');
+const previewCtx = previewCanvas.getContext('2d');
+let currentDownloadName = '';
+
+
+// ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
 function loadImage(src) {
   return new Promise((res, rej) => {
@@ -98,15 +105,21 @@ function loadImage(src) {
   });
 }
 
-// ==================== UI ====================
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const controls = document.getElementById('controls');
-const previewDiv = document.getElementById('preview');
-const mainBtn = document.getElementById('mainBtn');
-const progress = document.getElementById('progress');
+// Загрузка водяных знаков с улучшенной обработкой ошибок
+Promise.all([loadImage(WM1_SRC), loadImage(WM2_SRC)])
+  .then(imgs => { wm1 = imgs[0]; wm2 = imgs[1]; })
+  .catch(err => {
+    console.error('Ошибка загрузки водяных знаков:', err);
+    dropZone.classList.add('hidden');
+    controls.classList.add('hidden');
+    progress.style.color = 'red';
+    progress.textContent = '❌ Ошибка: Не удалось загрузить файлы водяных знаков. Проверьте папку /watermarks/';
+    mainBtn.disabled = true;
+  });
 
-// Drag & drop + click
+// ==================== ОБРАБОТЧИКИ UI ====================
+
+// Обработка выбора файла
 dropZone.onclick = () => fileInput.click();
 fileInput.onchange = e => e.target.files[0] && handleFile(e.target.files[0]);
 dropZone.ondragover = dropZone.ondragenter = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
@@ -116,31 +129,28 @@ dropZone.ondrop = e => {
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 };
 
-let previewVideoElement = null;
-let videoPreviewActive = false;
-let previewCanvas = document.createElement('canvas'); // Reuse one canvas
-const previewCtx = previewCanvas.getContext('2d');
-// === NEW: Store the watermark used for the initial video preview ===
-let initialWatermarkForVideo = null;
-
-
 function handleFile(file) {
   currentFile = file;
   isImage = file.type.startsWith('image/');
   const url = URL.createObjectURL(file);
+  
+  // Улучшение: Использование оригинального имени файла для экспорта
+  const safeName = file.name.split('.').slice(0, -1).join('.') || 'файл';
+  currentDownloadName = safeName;
 
   videoPreviewActive = false; 
   previewVideoElement = null;
 
-  previewDiv.innerHTML = ''; // Clear previous content
+  previewDiv.innerHTML = ''; 
   previewDiv.classList.remove('hidden');
   controls.classList.remove('hidden');
+  progress.textContent = ''; // Очистка прогресса
 
   if (isImage) {
     const img = new Image();
     img.onload = () => {
       previewDiv.appendChild(img);
-      renderPreview(); // First and *only* render for image
+      renderPreview(); // Первый рендер
     };
     img.src = url;
   } else {
@@ -155,38 +165,32 @@ function handleFile(file) {
     previewVideoElement.onloadedmetadata = () => {
       previewCanvas.width = previewVideoElement.videoWidth;
       previewCanvas.height = previewVideoElement.videoHeight;
-
-      // === MODIFIED: Store the *initial* watermark ===
-      initialWatermarkForVideo = activeWm === 1 ? wm1 : wm2;
-
       previewVideoElement.play();
       videoPreviewActive = true;
-      startVideoPreviewLoop(); // Start the live render loop
+      startVideoPreviewLoop(); // Запуск цикла предпросмотра
     };
   }
 }
 
-// Exclusive watermark selection
+// Обработка выбора водяного знака (динамическое обновление предпросмотра - лучшее UX)
 document.querySelectorAll('.wm-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.wm-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeWm = parseInt(btn.dataset.wm);
     
-    // === MODIFIED: Live preview is disabled ===
-    // We no longer call renderPreview() for images here.
-    // The video loop will ignore this change.
+    // Динамическое обновление предпросмотра
+    if (isImage) {
+      renderPreview();
+    }
+    // Видеообновление происходит автоматически в цикле startVideoPreviewLoop
   };
 });
 
-// === MODIFIED: Removed 'Live sliders' event listeners ===
-/*
-document.getElementById('size').oninput =
-document.getElementById('opacity').oninput = function() { ... };
-*/
 
-// ==================== IMAGE PREVIEW (NO ARTIFACTS) ====================
-let offscreenCanvas = document.createElement('canvas'); // Reused for speed
+// ==================== РЕНДЕР ИЗОБРАЖЕНИЯ ====================
+
+let offscreenCanvas = document.createElement('canvas'); 
 
 function renderPreview() {
   if (!isImage || !wm1 || !wm2) return;
@@ -202,34 +206,29 @@ function renderPreview() {
   ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
   ctx.drawImage(img, 0, 0);
 
-  // === MODIFIED: Use hardcoded values ===
   const sizePct = DEFAULT_SIZE_PCT;
   const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2; // Uses watermark active at *load time*
+  const watermark = activeWm === 1 ? wm1 : wm2;
 
   drawCentered(ctx, watermark, sizePct, opacity, offscreenCanvas);
 
   img.src = offscreenCanvas.toDataURL('image/png');
 }
 
-// === MODIFIED: Video loop now uses the stored initial watermark ===
+// ==================== РЕНДЕР ВИДЕО ====================
+
 function startVideoPreviewLoop() {
-  if (!videoPreviewActive || !previewVideoElement) return; // Stop loop if flag is false
+  if (!videoPreviewActive || !previewVideoElement) return;
 
-  // 1. Clear the canvas
   previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-
-  // 2. Draw the current video frame
   previewCtx.drawImage(previewVideoElement, 0, 0, previewCanvas.width, previewCanvas.height);
 
-  // 3. Get hardcoded settings and draw watermark
   const sizePct = DEFAULT_SIZE_PCT;
   const opacity = DEFAULT_OPACITY;
+  const watermark = activeWm === 1 ? wm1 : wm2; // Чтение текущего активного знака
   
-  // === MODIFIED: Use the watermark stored when the video was first loaded ===
-  drawCentered(previewCtx, initialWatermarkForVideo, sizePct, opacity, previewCanvas);
+  drawCentered(previewCtx, watermark, sizePct, opacity, previewCanvas);
 
-  // 4. Request the next frame
   requestAnimationFrame(startVideoPreviewLoop);
 }
 
@@ -246,10 +245,11 @@ function drawCentered(ctx, wmImg, scalePct, opacity, canvas) {
   ctx.globalAlpha = 1;
 }
 
-// ==================== EXPORT (PERFECT MATCH) ====================
+// ==================== ЭКСПОРТ ====================
+
 mainBtn.onclick = async () => {
   mainBtn.disabled = true;
-  progress.textContent = 'Exporting...';
+  progress.textContent = 'Подготовка к экспорту...';
 
   if (isImage) {
     await exportImage();
@@ -259,14 +259,14 @@ mainBtn.onclick = async () => {
     
     await exportVideo();
 
-    // Resume preview
+    // Возобновление предпросмотра
     if (previewVideoElement) previewVideoElement.play();
     videoPreviewActive = true;
-    startVideoPreviewLoop(); // Restarts the loop (will use initial watermark)
+    startVideoPreviewLoop();
   }
 
   mainBtn.disabled = false;
-  progress.textContent = 'Download started!';
+  progress.textContent = 'Загрузка начата!';
 };
 
 async function exportImage() {
@@ -278,20 +278,32 @@ async function exportImage() {
 
   ctx.drawImage(img, 0, 0);
 
-  // === MODIFIED: Use hardcoded values ===
   const sizePct = DEFAULT_SIZE_PCT;
   const opacity = DEFAULT_OPACITY;
-  // Export *does* use the currently selected watermark
   const watermark = activeWm === 1 ? wm1 : wm2;
 
   drawCentered(ctx, watermark, sizePct, opacity, canvas);
 
-  canvas.toBlob(blob => download(blob, 'watermarked.png'), 'image/png');
+  canvas.toBlob(blob => download(blob, `watermarked-${currentDownloadName}.png`), 'image/png');
+}
+
+// Улучшение: Проверка совместимости MIME-типов для MediaRecorder
+function getPreferredMimeType() {
+    let mime = 'video/webm;codecs=vp9';
+    if (MediaRecorder.isTypeSupported(mime)) return { mime, extension: 'webm' };
+    
+    mime = 'video/webm;codecs=vp8';
+    if (MediaRecorder.isTypeSupported(mime)) return { mime, extension: 'webm' };
+
+    return { mime: 'video/webm', extension: 'webm' }; 
 }
 
 async function exportVideo() {
   const video = document.createElement('video');
   video.src = URL.createObjectURL(currentFile);
+  // Важно: видео не должно быть заглушено, чтобы захватить аудио
+  video.muted = false; 
+  video.crossOrigin = 'anonymous'; // Необходимо для некоторых CORS-ограничений
   await new Promise(r => video.onloadedmetadata = r);
 
   const canvas = document.createElement('canvas');
@@ -299,21 +311,48 @@ async function exportVideo() {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
 
-  const stream = canvas.captureStream(30); // 30 FPS
-  const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+  // Настройка захвата потока
+  const preferred = getPreferredMimeType();
+  const videoStream = canvas.captureStream(30); 
   const chunks = [];
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.onstop = () => download(new Blob(chunks, {type: 'video/webm'}), 'watermarked.webm');
+  
+  let audioContext;
+  let recorder;
 
-  // === MODIFIED: Use hardcoded values ===
+  try {
+      // Улучшение: Использование Web Audio API для сохранения аудио
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const videoSource = audioContext.createMediaElementSource(video);
+      const audioDestination = audioContext.createMediaStreamDestination();
+      videoSource.connect(audioDestination);
+      
+      const combinedStream = new MediaStream([
+          ...videoStream.getVideoTracks(),
+          ...audioDestination.stream.getAudioTracks()
+      ]);
+      
+      recorder = new MediaRecorder(combinedStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
+  } catch (e) {
+      // Предупреждение/обходной путь в случае ошибки AudioContext (например, запрет браузером)
+      progress.style.color = 'orange';
+      progress.textContent = 'Предупреждение: Не удалось захватить аудио. Видео будет сохранено без звука...';
+      recorder = new MediaRecorder(videoStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
+  }
+
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => {
+      if (audioContext) audioContext.close(); // Очистка
+      const fileName = `watermarked-${currentDownloadName}.${preferred.extension}`;
+      download(new Blob(chunks, {type: preferred.mime}), fileName);
+      progress.style.color = ''; // Возврат цвета
+  };
+
   const sizePct = DEFAULT_SIZE_PCT;
   const opacity = DEFAULT_OPACITY;
-  // Export *does* use the currently selected watermark
   const watermark = activeWm === 1 ? wm1 : wm2;
 
   recorder.start();
   video.currentTime = 0;
-  video.muted = true; // Ensure export is silent
   video.play();
 
   let drawFrame;
@@ -322,6 +361,11 @@ async function exportVideo() {
       recorder.stop();
       return;
     }
+    
+    // Улучшение: Индикация прогресса в реальном времени
+    const percent = Math.round((video.currentTime / video.duration) * 100);
+    progress.textContent = `⏳ Экспортируется... ${percent}%`;
+
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
     ctx.drawImage(video, 0, 0);
     drawCentered(ctx, watermark, sizePct, opacity, canvas);
@@ -337,7 +381,7 @@ function download(blob, name) {
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
-  URL.revokeObjectURL(a.href); // Clean up
+  URL.revokeObjectURL(a.href); // Очистка
 }
 </script>
 </body>
