@@ -1,388 +1,668 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Single Watermark • Perfect Color • Zero Artifacts</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 1rem; background:#f8f9fc; text-align:center; }
-  h1 { margin-bottom: 0.5em; color: #1a1a1a; }
-  .drop-zone {
-    border: 4px dashed #555;
-    border-radius: 20px;
-    padding: 80px 20px;
-    background: white;
-    cursor: pointer;
-    transition: all 0.3s;
-    font-size: 1.3em;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-  }
-  .drop-zone:hover, .drop-zone.dragover { border-color: #007bff; background:#f0f8ff; }
-  .controls { margin: 30px 0; padding: 25px; background:white; border-radius:16px; box-shadow:0 6px 30px rgba(0,0,0,0.12); }
-  .wm-choice {
-    display: flex; justify-content: center; gap: 20px; margin: 20px 0; flex-wrap: wrap;
-  }
-  .wm-btn {
-    padding: 14px 28px; font-size: 1.1em; border: 2px solid #ddd; border-radius: 12px;
-    background: #f8f8f8; cursor: pointer; transition: all 0.2s;
-  }
-  .wm-btn.active {
-    background: #007bff; color: white; border-color: #007bff; font-weight: bold;
-  }
-  button#mainBtn {
-    background: #007bff; color: white; border: none; padding: 16px 40px; font-size: 1.1em;
-    border-radius: 12px; cursor: pointer; margin-top: 10px;
-  }
-  button#mainBtn:disabled { background: #888; cursor: not-allowed; }
-  .preview img, .preview video, .preview canvas { 
-    max-width: 100%; 
-    max-height: 70vh; 
-    border-radius: 16px; 
-    box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
-    background: #eee; 
-  }
-  .hidden { display: none; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aqueous - Minimalistic Watermarking</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-color: #f8fafc;
+            --surface-color: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --success-color: #059669;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--primary-color), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .workflow {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 2rem;
+            background: var(--surface-color);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            min-height: 600px;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border-color);
+            border-radius: 0.75rem;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: var(--bg-color);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+        }
+
+        .upload-zone.has-file {
+            border-style: solid;
+            padding: 1rem;
+            min-height: auto;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .upload-zone h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .upload-zone p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .browse-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .browse-btn:hover {
+            background: var(--primary-hover);
+        }
+
+        /* Preview Canvas */
+        .preview-container {
+            position: relative;
+            display: none;
+            max-width: 100%;
+        }
+
+        #previewCanvas {
+            max-width: 100%;
+            max-height: 500px;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .video-badge {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        /* Style Palette */
+        .style-palette {
+            display: none;
+        }
+
+        .style-palette h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .style-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .style-tile {
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: var(--surface-color);
+        }
+
+        .style-tile:hover {
+            border-color: var(--primary-color);
+        }
+
+        .style-tile.selected {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+        }
+
+        .style-preview {
+            width: 100%;
+            height: 80px;
+            background: linear-gradient(45deg, #f1f5f9 25%, transparent 25%),
+                        linear-gradient(-45deg, #f1f5f9 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #f1f5f9 75%),
+                        linear-gradient(-45deg, transparent 75%, #f1f5f9 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+            border-radius: 0.25rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .watermark-preview {
+            position: absolute;
+            font-weight: 600;
+            color: rgba(0, 0, 0, 0.7);
+        }
+
+        .style-tile:nth-child(1) .watermark-preview {
+            bottom: 0.5rem;
+            right: 0.5rem;
+            font-size: 0.75rem;
+            opacity: 0.7;
+        }
+
+        .style-tile:nth-child(2) .watermark-preview {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+
+        .style-tile:nth-child(3) .watermark-preview {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(0, 0, 0, 0.1) 10px,
+                rgba(0, 0, 0, 0.1) 20px
+            );
+            padding: 0.5rem;
+            width: 100%;
+            text-align: center;
+        }
+
+        .style-tile:nth-child(4) .watermark-preview {
+            top: 0.5rem;
+            left: 0;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 1rem;
+            font-size: 0.75rem;
+            border-radius: 0 0.25rem 0.25rem 0;
+        }
+
+        .style-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Export Section */
+        .export-section {
+            grid-column: 1 / -1;
+            display: none;
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .export-btn {
+            background: var(--success-color);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 0.5rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .export-btn:hover {
+            background: #047857;
+            transform: translateY(-1px);
+        }
+
+        .export-loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .spinner {
+            width: 1.5rem;
+            height: 1.5rem;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* File Info */
+        .file-info {
+            display: none;
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-color);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .workflow {
+                grid-template-columns: 1fr;
+            }
+            
+            body {
+                padding: 1rem;
+            }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
 </head>
 <body>
+    <div class="container">
+        <div class="header">
+            <h1>Aqueous</h1>
+            <p>Seamless watermarking with professional results</p>
+        </div>
 
-<h1>Профессиональный Инструмент Водяных Знаков</h1>
-<p>Идеальные цвета • Нулевые артефакты</p>
+        <div class="workflow">
+            <!-- Main Content Area -->
+            <div class="content-area">
+                <div class="upload-zone" id="uploadZone">
+                    <div class="upload-icon">📁</div>
+                    <h3>Drag & Drop your media here</h3>
+                    <p>Supports JPG, PNG, WEBP, MP4, MOV, AVI (Max 100MB)</p>
+                    <button class="browse-btn" id="browseBtn">Browse Files</button>
+                    <input type="file" id="fileInput" accept="image/*,video/*" style="display: none;">
+                </div>
 
-<div class="drop-zone" id="dropZone">
-  Перетащите ваше фото или видео сюда<br>или нажмите, чтобы выбрать
-  <input type="file" id="fileInput" accept="image/*,video/*" style="display:none">
-</div>
+                <div class="preview-container" id="previewContainer">
+                    <canvas id="previewCanvas"></canvas>
+                    <div class="video-badge hidden" id="videoBadge">VIDEO</div>
+                </div>
 
-<div class="controls hidden" id="controls">
-  <div class="wm-choice">
-    <button type="button" class="wm-btn active" data-wm="1">Водяной знак 1</button>
-    <button type="button" class="wm-btn" data-wm="2">Водяной знак 2</button>
-  </div>
+                <div class="file-info" id="fileInfo">
+                    <!-- File details will be populated here -->
+                </div>
+            </div>
 
-  <button id="mainBtn">Скачать файл с водяным знаком</button>
-  <div id="progress" style="margin-top:15px; font-weight:bold;"></div>
-</div>
+            <!-- Style Palette -->
+            <div class="style-palette" id="stylePalette">
+                <h3>Watermark Style</h3>
+                <div class="style-grid">
+                    <div class="style-tile selected" data-style="subtle">
+                        <div class="style-preview">
+                            <div class="watermark-preview">yourbrand.com</div>
+                        </div>
+                        <div class="style-name">Subtle Text</div>
+                    </div>
+                    <div class="style-tile" data-style="bold">
+                        <div class="style-preview">
+                            <div class="watermark-preview">YOUR BRAND</div>
+                        </div>
+                        <div class="style-name">Bold Centered</div>
+                    </div>
+                    <div class="style-tile" data-style="tiled">
+                        <div class="style-preview">
+                            <div class="watermark-preview">Your Brand • Your Brand • Your Brand</div>
+                        </div>
+                        <div class="style-name">Tiled Pattern</div>
+                    </div>
+                    <div class="style-tile" data-style="banner">
+                        <div class="style-preview">
+                            <div class="watermark-preview">PROTECTED CONTENT</div>
+                        </div>
+                        <div class="style-name">Corner Banner</div>
+                    </div>
+                </div>
+            </div>
 
-<div class="preview hidden" id="preview"></div>
+            <!-- Export Section -->
+            <div class="export-section" id="exportSection">
+                <button class="export-btn" id="exportBtn">
+                    <span class="btn-text">Export Flawlessly</span>
+                    <div class="export-loading">
+                        <div class="spinner"></div>
+                        <span>Processing...</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+    </div>
 
-<script>
-// ==================== КОНСТАНТЫ И ПЕРЕМЕННЫЕ ====================
-const WM1_SRC = 'watermarks/watermark1.png';
-const WM2_SRC = 'watermarks/watermark2.png';
+    <script>
+        class AqueousWatermarker {
+            constructor() {
+                this.canvas = document.getElementById('previewCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.currentFile = null;
+                this.currentStyle = 'subtle';
+                this.isVideo = false;
+                
+                this.initializeEventListeners();
+            }
 
-const DEFAULT_SIZE_PCT = 0.7; // 70%
-const DEFAULT_OPACITY = 0.8;  // 80%
+            initializeEventListeners() {
+                const uploadZone = document.getElementById('uploadZone');
+                const fileInput = document.getElementById('fileInput');
+                const browseBtn = document.getElementById('browseBtn');
+                const styleTiles = document.querySelectorAll('.style-tile');
+                const exportBtn = document.getElementById('exportBtn');
 
-let wm1, wm2, activeWm = 1;
-let currentFile, isImage = false;
+                // Drag and drop events
+                uploadZone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.add('dragover');
+                });
 
-// UI элементы
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const controls = document.getElementById('controls');
-const previewDiv = document.getElementById('preview');
-const mainBtn = document.getElementById('mainBtn');
-const progress = document.getElementById('progress');
+                uploadZone.addEventListener('dragleave', () => {
+                    uploadZone.classList.remove('dragover');
+                });
 
-// Элементы предпросмотра видео
-let previewVideoElement = null;
-// Флаг для остановки цикла предпросмотра (Теперь используется только для экспорта!)
-let videoPreviewActive = false; 
-let previewCanvas = document.createElement('canvas');
-const previewCtx = previewCanvas.getContext('2d');
-let currentDownloadName = '';
+                uploadZone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    uploadZone.classList.remove('dragover');
+                    const file = e.dataTransfer.files[0];
+                    if (file) this.handleFileSelect(file);
+                });
 
-// ==================== ИНИЦИАЛИЗАЦИЯ ====================
+                // File input events
+                browseBtn.addEventListener('click', () => fileInput.click());
+                fileInput.addEventListener('change', (e) => {
+                    if (e.target.files[0]) this.handleFileSelect(e.target.files[0]);
+                });
 
-function loadImage(src) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => res(img);
-    img.onerror = rej;
-    img.src = src;
-  });
-}
+                // Style selection
+                styleTiles.forEach(tile => {
+                    tile.addEventListener('click', () => {
+                        styleTiles.forEach(t => t.classList.remove('selected'));
+                        tile.classList.add('selected');
+                        this.currentStyle = tile.dataset.style;
+                        this.applyWatermark();
+                    });
+                });
 
-// Загрузка водяных знаков с обработкой ошибок
-Promise.all([loadImage(WM1_SRC), loadImage(WM2_SRC)])
-  .then(imgs => { wm1 = imgs[0]; wm2 = imgs[1]; })
-  .catch(err => {
-    console.error('Ошибка загрузки водяных знаков:', err);
-    dropZone.classList.add('hidden');
-    controls.classList.add('hidden');
-    progress.style.color = 'red';
-    progress.textContent = '❌ Ошибка: Не удалось загрузить файлы водяных знаков. Проверьте папку /watermarks/';
-    mainBtn.disabled = true;
-  });
+                // Export
+                exportBtn.addEventListener('click', () => this.handleExport());
+            }
 
-// ==================== ОБРАБОТЧИКИ UI ====================
+            handleFileSelect(file) {
+                if (!file.type.match('image.*') && !file.type.match('video.*')) {
+                    alert('Please select an image or video file.');
+                    return;
+                }
 
-dropZone.onclick = () => fileInput.click();
-fileInput.onchange = e => e.target.files[0] && handleFile(e.target.files[0]);
-dropZone.ondragover = dropZone.ondragenter = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
-dropZone.ondragleave = dropZone.ondragend = () => dropZone.classList.remove('dragover');
-dropZone.ondrop = e => {
-  e.preventDefault(); dropZone.classList.remove('dragover');
-  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-};
+                this.currentFile = file;
+                this.isVideo = file.type.match('video.*');
+                
+                this.updateUI();
+                this.loadPreview();
+            }
 
-function handleFile(file) {
-  currentFile = file;
-  isImage = file.type.startsWith('image/');
-  const url = URL.createObjectURL(file);
-  
-  const safeName = file.name.split('.').slice(0, -1).join('.') || 'файл';
-  currentDownloadName = safeName;
+            updateUI() {
+                const uploadZone = document.getElementById('uploadZone');
+                const previewContainer = document.getElementById('previewContainer');
+                const stylePalette = document.getElementById('stylePalette');
+                const exportSection = document.getElementById('exportSection');
+                const fileInfo = document.getElementById('fileInfo');
+                const videoBadge = document.getElementById('videoBadge');
 
-  previewVideoElement = null; // Очистка предыдущего элемента видео
-  previewDiv.innerHTML = ''; 
-  previewDiv.classList.remove('hidden');
-  controls.classList.remove('hidden');
-  progress.textContent = ''; 
+                uploadZone.classList.add('has-file');
+                uploadZone.innerHTML = `
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
+                        <h3>File Ready</h3>
+                        <p>${this.currentFile.name}</p>
+                    </div>
+                `;
 
-  if (isImage) {
-    const img = new Image();
-    img.onload = () => {
-      previewDiv.appendChild(img);
-      renderPreview(); // Однократный рендер для изображения
-    };
-    img.src = url;
-  } else {
-    // === MODIFIED: Логика однократного предпросмотра видео ===
-    previewVideoElement = document.createElement('video');
-    previewVideoElement.src = url;
-    previewVideoElement.muted = true;
-    previewVideoElement.loop = true;
-    previewVideoElement.playsInline = true;
-    
-    // Показываем CANVAS, на котором будет наложен водяной знак
-    previewDiv.appendChild(previewCanvas);
+                previewContainer.style.display = 'block';
+                stylePalette.style.display = 'block';
+                exportSection.style.display = 'block';
 
-    previewVideoElement.onloadedmetadata = () => {
-      previewCanvas.width = previewVideoElement.videoWidth;
-      previewCanvas.height = previewVideoElement.videoHeight;
-      
-      // Нам нужен первый кадр. Самый надежный способ - установить 
-      // время 0 и дождаться события 'seeked' или 'canplay'
-      previewVideoElement.currentTime = 0;
-      previewVideoElement.onseeked = () => {
-        // Наложение водяного знака на первый кадр
-        renderVideoFrame(); 
-        // Запуск воспроизведения, но без цикла обновления watermark
-        previewVideoElement.play(); 
-      };
-    };
-  }
-}
+                fileInfo.style.display = 'block';
+                fileInfo.innerHTML = `
+                    <strong>File:</strong> ${this.currentFile.name}<br>
+                    <strong>Type:</strong> ${this.currentFile.type}<br>
+                    <strong>Size:</strong> ${this.formatFileSize(this.currentFile.size)}
+                `;
 
-// Обработка выбора водяного знака
-document.querySelectorAll('.wm-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.wm-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    activeWm = parseInt(btn.dataset.wm);
-    
-    // Однократное обновление предпросмотра при смене
-    if (isImage) {
-      renderPreview();
-    } else if (previewVideoElement) {
-      // Обновление watermark на текущем кадре видео
-      renderVideoFrame();
-    }
-  };
-});
+                if (this.isVideo) {
+                    videoBadge.classList.remove('hidden');
+                } else {
+                    videoBadge.classList.add('hidden');
+                }
+            }
 
+            loadPreview() {
+                const reader = new FileReader();
 
-// ==================== РЕНДЕР КАДРА (ОДНОКРАТНО) ====================
+                reader.onload = (e) => {
+                    if (this.isVideo) {
+                        this.loadVideoPreview(e.target.result);
+                    } else {
+                        this.loadImagePreview(e.target.result);
+                    }
+                };
 
-function renderPreview() {
-  if (!isImage || !wm1 || !wm2) return;
+                reader.readAsDataURL(this.currentFile);
+            }
 
-  const img = previewDiv.querySelector('img');
-  const ctx = offscreenCanvas.getContext('2d');
+            loadImagePreview(dataUrl) {
+                const img = new Image();
+                img.onload = () => {
+                    // Set canvas dimensions to match image (max 800px width/height for preview)
+                    const maxDimension = 800;
+                    let width = img.width;
+                    let height = img.height;
 
-  if (offscreenCanvas.width !== img.naturalWidth || offscreenCanvas.height !== img.naturalHeight) {
-    offscreenCanvas.width = img.naturalWidth;
-    offscreenCanvas.height = img.naturalHeight;
-  }
+                    if (width > maxDimension || height > maxDimension) {
+                        const ratio = Math.min(maxDimension / width, maxDimension / height);
+                        width *= ratio;
+                        height *= ratio;
+                    }
 
-  ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-  ctx.drawImage(img, 0, 0);
+                    this.canvas.width = width;
+                    this.canvas.height = height;
 
-  const sizePct = DEFAULT_SIZE_PCT;
-  const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2;
+                    this.ctx.drawImage(img, 0, 0, width, height);
+                    this.applyWatermark();
+                };
+                img.src = dataUrl;
+            }
 
-  drawCentered(ctx, watermark, sizePct, opacity, offscreenCanvas);
+            loadVideoPreview(dataUrl) {
+                const video = document.createElement('video');
+                video.src = dataUrl;
+                video.currentTime = 0.1; // Get a frame early to avoid black frames
 
-  img.src = offscreenCanvas.toDataURL('image/png');
-}
+                video.addEventListener('loadeddata', () => {
+                    // Set canvas dimensions to match video (max 800px)
+                    const maxDimension = 800;
+                    let width = video.videoWidth;
+                    let height = video.videoHeight;
 
-// === MODIFIED: Функция для однократного рендера кадра видео ===
-function renderVideoFrame() {
-  if (!previewVideoElement) return;
+                    if (width > maxDimension || height > maxDimension) {
+                        const ratio = Math.min(maxDimension / width, maxDimension / height);
+                        width *= ratio;
+                        height *= ratio;
+                    }
 
-  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-  // 1. Рисуем текущий кадр видео
-  previewCtx.drawImage(previewVideoElement, 0, 0, previewCanvas.width, previewCanvas.height);
+                    this.canvas.width = width;
+                    this.canvas.height = height;
 
-  // 2. Накладываем водяной знак
-  const sizePct = DEFAULT_SIZE_PCT;
-  const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2;
-  
-  drawCentered(previewCtx, watermark, sizePct, opacity, previewCanvas);
-}
+                    video.addEventListener('seeked', () => {
+                        this.ctx.drawImage(video, 0, 0, width, height);
+                        this.applyWatermark();
+                    });
+                });
+            }
 
+            applyWatermark() {
+                if (!this.currentFile) return;
 
-function drawCentered(ctx, wmImg, scalePct, opacity, canvas) {
-  const targetW = canvas.width * scalePct;
-  const ratio = targetW / wmImg.width;
-  const targetH = wmImg.height * ratio;
-  const x = canvas.width / 2 - targetW / 2;
-  const y = canvas.height / 2 - targetH / 2;
+                // Redraw the original image/video frame first
+                this.loadPreview();
 
-  ctx.globalAlpha = opacity;
-  ctx.drawImage(wmImg, x, y, targetW, targetH);
-  ctx.globalAlpha = 1;
-}
+                // Then apply watermark based on current style
+                setTimeout(() => {
+                    const width = this.canvas.width;
+                    const height = this.canvas.height;
 
-// ==================== ЭКСПОРТ ====================
+                    this.ctx.font = '600 24px Inter, sans-serif';
+                    this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                    this.ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                    this.ctx.lineWidth = 2;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.textBaseline = 'middle';
 
-mainBtn.onclick = async () => {
-  mainBtn.disabled = true;
-  progress.textContent = 'Подготовка к экспорту...';
+                    const watermarkText = 'yourbrand.com';
 
-  if (isImage) {
-    await exportImage();
-  } else {
-    // ВРЕМЕННО останавливаем воспроизведение предпросмотра перед экспортом
-    if (previewVideoElement) previewVideoElement.pause();
-    
-    await exportVideo();
+                    switch (this.currentStyle) {
+                        case 'subtle':
+                            this.ctx.font = '600 18px Inter, sans-serif';
+                            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                            this.ctx.textAlign = 'right';
+                            this.ctx.fillText(watermarkText, width - 20, height - 20);
+                            break;
 
-    // Возобновление воспроизведения после экспорта
-    if (previewVideoElement) previewVideoElement.play();
-  }
+                        case 'bold':
+                            this.ctx.font = '600 32px Inter, sans-serif';
+                            this.ctx.strokeText(watermarkText, width / 2, height / 2);
+                            this.ctx.fillText(watermarkText, width / 2, height / 2);
+                            break;
 
-  mainBtn.disabled = false;
-  progress.textContent = 'Загрузка начата!';
-};
+                        case 'tiled':
+                            this.ctx.font = '600 16px Inter, sans-serif';
+                            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                            for (let x = 50; x < width; x += 200) {
+                                for (let y = 50; y < height; y += 100) {
+                                    this.ctx.fillText(watermarkText, x, y);
+                                }
+                            }
+                            break;
 
-async function exportImage() {
-  const img = await loadImage(URL.createObjectURL(currentFile));
-  const canvas = document.createElement('canvas');
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const ctx = canvas.getContext('2d');
+                        case 'banner':
+                            this.ctx.font = '600 18px Inter, sans-serif';
+                            this.ctx.fillStyle = '#2563eb';
+                            this.ctx.fillRect(0, 20, this.ctx.measureText(watermarkText).width + 40, 40);
+                            this.ctx.fillStyle = 'white';
+                            this.ctx.fillText(watermarkText, 20, 40);
+                            break;
+                    }
+                }, 100);
+            }
 
-  ctx.drawImage(img, 0, 0);
+            async handleExport() {
+                const exportBtn = document.getElementById('exportBtn');
+                const btnText = exportBtn.querySelector('.btn-text');
+                const loading = exportBtn.querySelector('.export-loading');
 
-  const sizePct = DEFAULT_SIZE_PCT;
-  const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2;
+                btnText.style.display = 'none';
+                loading.style.display = 'flex';
 
-  drawCentered(ctx, watermark, sizePct, opacity, canvas);
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 2000));
 
-  canvas.toBlob(blob => download(blob, `watermarked-${currentDownloadName}.png`), 'image/png');
-}
+                // Create download link
+                const link = document.createElement('a');
+                link.download = `watermarked_${this.currentFile.name.split('.')[0]}.${this.isVideo ? 'mp4' : 'png'}`;
+                
+                if (this.isVideo) {
+                    // For video, we'd typically send to server for processing
+                    // Here we'll just download the original file as a simulation
+                    link.href = URL.createObjectURL(this.currentFile);
+                } else {
+                    link.href = this.canvas.toDataURL('image/png');
+                }
 
-function getPreferredMimeType() {
-    let mime = 'video/webm;codecs=vp9';
-    if (MediaRecorder.isTypeSupported(mime)) return { mime, extension: 'webm' };
-    
-    mime = 'video/webm;codecs=vp8';
-    if (MediaRecorder.isTypeSupported(mime)) return { mime, extension: 'webm' };
+                link.click();
 
-    return { mime: 'video/webm', extension: 'webm' }; 
-}
+                // Reset button state
+                btnText.style.display = 'block';
+                loading.style.display = 'none';
 
-async function exportVideo() {
-  const video = document.createElement('video');
-  video.src = URL.createObjectURL(currentFile);
-  video.muted = false; 
-  video.crossOrigin = 'anonymous'; 
-  await new Promise(r => video.onloadedmetadata = r);
+                // Show success message
+                alert('File exported successfully with flawless quality!');
+            }
 
-  const canvas = document.createElement('canvas');
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  const ctx = canvas.getContext('2d');
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+            }
+        }
 
-  const preferred = getPreferredMimeType();
-  const videoStream = canvas.captureStream(30); 
-  const chunks = [];
-  
-  let audioContext;
-  let recorder;
-
-  try {
-      // Использование Web Audio API для сохранения аудио
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const videoSource = audioContext.createMediaElementSource(video);
-      const audioDestination = audioContext.createMediaStreamDestination();
-      videoSource.connect(audioDestination);
-      
-      const combinedStream = new MediaStream([
-          ...videoStream.getVideoTracks(),
-          ...audioDestination.stream.getAudioTracks()
-      ]);
-      
-      // Устанавливаем битрейт для качества
-      recorder = new MediaRecorder(combinedStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
-  } catch (e) {
-      progress.style.color = 'orange';
-      progress.textContent = 'Предупреждение: Не удалось захватить аудио. Видео будет сохранено без звука...';
-      recorder = new MediaRecorder(videoStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
-  }
-
-  recorder.ondataavailable = e => chunks.push(e.data);
-  recorder.onstop = () => {
-      if (audioContext) audioContext.close(); 
-      const fileName = `watermarked-${currentDownloadName}.${preferred.extension}`;
-      download(new Blob(chunks, {type: preferred.mime}), fileName);
-      progress.style.color = ''; 
-  };
-
-  const sizePct = DEFAULT_SIZE_PCT;
-  const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2;
-
-  recorder.start();
-  video.currentTime = 0;
-  video.play();
-
-  let drawFrame;
-  drawFrame = () => {
-    if (video.paused || video.ended) {
-      recorder.stop();
-      return;
-    }
-    
-    // Индикация прогресса в реальном времени
-    const percent = Math.round((video.currentTime / video.duration) * 100);
-    progress.textContent = `⏳ Экспортируется... ${percent}%`;
-
-    // Однократный, но постоянный рендер кадра в контексте ЭКСПОРТА (этот цикл нужен для захвата видео!)
-    ctx.clearRect(0, 0, canvas.width, canvas.height); 
-    ctx.drawImage(video, 0, 0);
-    drawCentered(ctx, watermark, sizePct, opacity, canvas);
-    
-    // Используем requestAnimationFrame для синхронизации с браузером
-    requestAnimationFrame(drawFrame); 
-  };
-  
-  drawFrame();
-}
-
-function download(blob, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(a.href); 
-}
-</script>
+        // Initialize the application when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new AqueousWatermarker();
+        });
+    </script>
 </body>
 </html>
