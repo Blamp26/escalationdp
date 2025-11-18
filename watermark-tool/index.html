@@ -25,7 +25,9 @@
   .status-off{color:#ffc7c7}
   .hint{font-size:12px;color:#9fb0c8}
   .overlay-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:18px;color:#9fb0c8;pointer-events:none;opacity:0.9}
-  .threshold-info{display:flex;justify-content:space-between;margin-top:4px}
+  .color-selector{display:flex;gap:8px;margin-bottom:8px}
+  .color-option{padding:6px 12px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);cursor:pointer;font-size:12px}
+  .color-option.selected{background:var(--accent);color:#05233a;border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -48,12 +50,13 @@
       <label>Настройки водяного знака</label>
       
       <div style="margin-bottom:12px">
-        <div class="threshold-info">
-          <span class="muted">Порог яркости:</span>
-          <span id="thresholdLabel" class="muted">0.55</span>
+        <div class="muted" style="margin-bottom:6px">Режим цвета:</div>
+        <div class="color-selector">
+          <div class="color-option selected" data-color="adaptive">Адаптивный (умный)</div>
+          <div class="color-option" data-color="light">Светлый</div>
+          <div class="color-option" data-color="dark">Темный</div>
         </div>
-        <input id="threshold" type="range" min="0" max="1" step="0.01" value="0.55" />
-        <div class="hint">Ниже порога = белый watermark, выше = чёрный</div>
+        <div class="hint">Адаптивный режим меняет цвет водяного знака в зависимости от фона под каждой его частью</div>
       </div>
 
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
@@ -91,7 +94,7 @@
 </div>
 
 <script>
-/* ======= УЛУЧШЕННЫЙ КОД С ИСПРАВЛЕННЫМ ПОРОГОМ ЯРКОСТИ ======= */
+/* ======= УЛУЧШЕННЫЙ КОД С АДАПТИВНЫМ ЦВЕТОМ ВОДЯНОГО ЗНАКА ======= */
 
 const watermarkPaths = [
   'https://raw.githubusercontent.com/Blamp26/escalationdp/main/watermark-tool/watermarks/watermark1.png',
@@ -103,8 +106,6 @@ const wmUpload = document.getElementById('wmUpload');
 const wmList = document.getElementById('wmList');
 const previewCanvas = document.getElementById('previewCanvas');
 const previewCtx = previewCanvas.getContext('2d', {alpha:true});
-const thresholdInput = document.getElementById('threshold');
-const thresholdLabel = document.getElementById('thresholdLabel');
 const adaptFlag = document.getElementById('adaptFlag');
 const imageInfo = document.getElementById('imageInfo');
 const posInfo = document.getElementById('posInfo');
@@ -114,6 +115,7 @@ const exportWebm = document.getElementById('exportWebm');
 const resetBtn = document.getElementById('reset');
 const previewHolder = document.getElementById('previewHolder');
 const playOverlay = document.getElementById('playOverlay');
+const colorOptions = document.querySelectorAll('.color-option');
 
 let srcImage = null, srcVideo = null, srcWidth = 0, srcHeight = 0;
 let watermarkBitmap = null;
@@ -125,6 +127,7 @@ let colorAdaptAvailable = false;
 let videoElement = null;
 let loopRunning = false;
 let rafId = null;
+let selectedColorMode = 'adaptive'; // 'adaptive', 'light' или 'dark'
 
 // Установка высокого качества рендеринга
 function setHighQuality(ctx){
@@ -133,6 +136,16 @@ function setHighQuality(ctx){
     try { ctx.imageSmoothingQuality = 'high'; } catch(e){}
   }
 }
+
+// Обработчик выбора режима цвета
+colorOptions.forEach(option => {
+  option.addEventListener('click', () => {
+    colorOptions.forEach(opt => opt.classList.remove('selected'));
+    option.classList.add('selected');
+    selectedColorMode = option.dataset.color;
+    renderPreview();
+  });
+});
 
 // Создание видео элемента
 function ensureVideoElement(){
@@ -181,6 +194,70 @@ function assessCanvasTaint(){
     colorAdaptAvailable = false;
     adaptFlag.textContent = 'OFF (CORS)';
     adaptFlag.className = 'status-off';
+  }
+}
+
+// НОВАЯ ФУНКЦИЯ: Адаптивное перекрашивание водяного знака на основе фона под каждым пикселем
+function createAdaptiveWatermark(backgroundCtx, wmX, wmY, wmWidth, wmHeight) {
+  if (!colorAdaptAvailable) return null;
+  
+  try {
+    // Создаем временный canvas для водяного знака
+    const wmCanvas = document.createElement('canvas');
+    wmCanvas.width = wmWidth;
+    wmCanvas.height = wmHeight;
+    const wmCtx = wmCanvas.getContext('2d');
+    setHighQuality(wmCtx);
+    
+    // Рисуем водяной знак во временный canvas
+    if (watermarkBitmap) {
+      wmCtx.drawImage(watermarkBitmap, 0, 0, watermarkBitmap.width, watermarkBitmap.height, 
+                      0, 0, wmWidth, wmHeight);
+    } else if (watermarkImgElement) {
+      wmCtx.drawImage(watermarkImgElement, 0, 0, watermarkImgElement.naturalWidth, watermarkImgElement.naturalHeight, 
+                      0, 0, wmWidth, wmHeight);
+    }
+    
+    const wmData = wmCtx.getImageData(0, 0, wmWidth, wmHeight);
+    
+    // Получаем данные фона в области водяного знака
+    const bgData = backgroundCtx.getImageData(wmX, wmY, wmWidth, wmHeight);
+    
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = wmWidth;
+    outCanvas.height = wmHeight;
+    const outCtx = outCanvas.getContext('2d');
+    setHighQuality(outCtx);
+    const outData = outCtx.createImageData(wmWidth, wmHeight);
+    
+    // Анализируем каждый пиксель водяного знака
+    for (let i = 0; i < wmData.data.length; i += 4) {
+      const alpha = wmData.data[i + 3];
+      
+      // Пропускаем полностью прозрачные пиксели
+      if (alpha < 10) {
+        outData.data[i + 3] = 0;
+        continue;
+      }
+      
+      // Анализируем яркость фона под этим пикселем
+      const bgBrightness = 0.299 * bgData.data[i] + 0.587 * bgData.data[i + 1] + 0.114 * bgData.data[i + 2];
+      
+      // Выбираем цвет водяного знака в зависимости от яркости фона
+      // На темном фоне - светлый знак, на светлом фоне - темный знак
+      const wmValue = bgBrightness > 128 ? 0 : 255; // Порог 128
+      
+      outData.data[i] = wmValue;     // R
+      outData.data[i + 1] = wmValue; // G  
+      outData.data[i + 2] = wmValue; // B
+      outData.data[i + 3] = alpha;   // A (сохраняем альфа-канал)
+    }
+    
+    outCtx.putImageData(outData, 0, 0);
+    return outCanvas;
+  } catch(e) {
+    console.warn('createAdaptiveWatermark failed', e);
+    return null;
   }
 }
 
@@ -382,7 +459,7 @@ function computeWatermarkFitFull(){
 }
 
 // УЛУЧШЕННАЯ ФУНКЦИЯ: Рисование водяного знака с высоким качеством
-function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, usePerPixel=true){
+function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, watermarkColor='light'){
   if(!watermarkBitmap && watermarkImgElement) {
     ctx.save(); 
     setHighQuality(ctx); 
@@ -409,35 +486,9 @@ function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, usePe
       x += stampW;
     }
     
-    // ИСПРАВЛЕННАЯ ЛОГИКА ПОРОГА ЯРКОСТИ
-    if(colorAdaptAvailable && usePerPixel){
-      let avgLum = 0.5;
-      try {
-        const sampleW = Math.max(4, Math.round(targetW * 0.2));
-        const sampleH = Math.max(4, Math.round(targetH * 0.2));
-        const sx = Math.max(0, Math.round(centerX - sampleW/2));
-        const sy = Math.max(0, Math.round(centerY - sampleH/2));
-        const data = ctx.getImageData(sx, sy, sampleW, sampleH).data;
-        let sum=0, count=0;
-        
-        // Правильное вычисление яркости с учетом альфа-канала
-        for(let i=0;i<data.length;i+=4){ 
-          const a=data[i+3]; 
-          if(a<10) continue; // Пропускаем прозрачные пиксели
-          const r=data[i], g=data[i+1], b=data[i+2]; 
-          // Формула для относительной яркости
-          const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
-          sum += luminance; 
-          count++; 
-        }
-        if(count>0) avgLum = sum/count;
-      }catch(e){ 
-        avgLum = 0.5; 
-      }
-      
-      const threshold = parseFloat(thresholdInput.value);
-      // ИСПРАВЛЕННАЯ ЛОГИКА: если яркость фона ВЫШЕ порога - черный watermark, иначе - белый
-      const targetColor = avgLum > threshold ? 'black' : 'white';
+    // Перекрашиваем в выбранный цвет
+    if(colorAdaptAvailable){
+      const targetColorValue = watermarkColor === 'light' ? 255 : 0;
       
       const recolored = document.createElement('canvas'); 
       recolored.width = tileCanvas.width; 
@@ -446,7 +497,7 @@ function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, usePe
       setHighQuality(rctx);
       rctx.drawImage(tileCanvas, 0, 0);
       rctx.globalCompositeOperation = 'source-in';
-      rctx.fillStyle = targetColor;
+      rctx.fillStyle = `rgb(${targetColorValue},${targetColorValue},${targetColorValue})`;
       rctx.fillRect(0,0,recolored.width,recolored.height);
       rctx.globalCompositeOperation = 'source-over';
       ctx.drawImage(recolored, centerX - targetW/2, centerY - targetH/2);
@@ -466,8 +517,8 @@ function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, usePe
   ctx.restore();
 }
 
-// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Перекрашивание водяного знака на основе яркости фона
-function recolorPerPixelFull(w, h){
+// УПРОЩЕННАЯ ФУНКЦИЯ: Перекрашивание водяного знака в выбранный цвет
+function recolorPerPixelFull(w, h, watermarkColor='light'){
   if(!colorAdaptAvailable) return null;
   
   try{
@@ -488,35 +539,6 @@ function recolorPerPixelFull(w, h){
     
     const wmData = tw.getImageData(0,0,tempWm.width,tempWm.height);
 
-    const bgCanvas = document.createElement('canvas'); 
-    bgCanvas.width = tempWm.width; 
-    bgCanvas.height = tempWm.height;
-    const bgCtx = bgCanvas.getContext('2d'); 
-    setHighQuality(bgCtx);
-    
-    // Пытаемся получить данные фона
-    if(canvasReadable(previewCtx)){
-      const centerX = Math.round(previewCanvas.width/2), centerY = Math.round(previewCanvas.height/2);
-      const sx = Math.max(0, Math.round(centerX - tempWm.width/2));
-      const sy = Math.max(0, Math.round(centerY - tempWm.height/2));
-      try{ 
-        bgCtx.drawImage(previewCtx.canvas, sx, sy, Math.max(1,tempWm.width), Math.max(1,tempWm.height), 
-                        0, 0, tempWm.width, tempWm.height); 
-      }catch(e){ 
-        bgCtx.drawImage(previewCtx.canvas, 0, 0, tempWm.width, tempWm.height); 
-      }
-    } else {
-      try{ 
-        bgCtx.drawImage(offscreenCtx.canvas, 
-                        Math.max(0, Math.round(srcWidth/2 - w/2)), 
-                        Math.max(0, Math.round(srcHeight/2 - h/2)), 
-                        Math.max(1,w), Math.max(1,h), 
-                        0, 0, tempWm.width, tempWm.height); 
-      }catch(e){ /* fallback blank */ }
-    }
-    
-    const bgData = bgCtx.getImageData(0,0,tempWm.width,tempWm.height);
-
     const out = document.createElement('canvas'); 
     out.width = tempWm.width; 
     out.height = tempWm.height;
@@ -524,9 +546,9 @@ function recolorPerPixelFull(w, h){
     setHighQuality(octx);
     const outData = octx.createImageData(out.width, out.height);
 
-    const threshold = parseFloat(thresholdInput.value);
+    // Выбираем цвет на основе параметра
+    const targetColor = watermarkColor === 'light' ? 255 : 0;
     
-    // ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕКРАШИВАНИЯ
     for(let i=0;i<wmData.data.length;i+=4){
       const a = wmData.data[i+3];
       if(a < 10){ 
@@ -534,22 +556,10 @@ function recolorPerPixelFull(w, h){
         continue; 
       }
       
-      const br = bgData.data[i], bg = bgData.data[i+1], bb = bgData.data[i+2];
-      // Используем стандартную формулу для относительной яркости
-      const lum = (0.299*br + 0.587*bg + 0.114*bb) / 255;
-      
-      // ИСПРАВЛЕННАЯ ЛОГИКА: если яркость фона ВЫШЕ порога - черный watermark, иначе - белый
-      if(lum > threshold){
-        outData.data[i] = 0;     // R
-        outData.data[i+1] = 0;   // G  
-        outData.data[i+2] = 0;   // B
-        outData.data[i+3] = a;   // A
-      } else {
-        outData.data[i] = 255;   // R
-        outData.data[i+1] = 255; // G
-        outData.data[i+2] = 255; // B
-        outData.data[i+3] = a;   // A
-      }
+      outData.data[i] = targetColor;     // R
+      outData.data[i+1] = targetColor;   // G  
+      outData.data[i+2] = targetColor;   // B
+      outData.data[i+3] = a;             // A
     }
     
     octx.putImageData(outData, 0, 0);
@@ -597,11 +607,25 @@ function renderPreview(){
     if (fit) {
       const displayW = Math.round(fit.w * previewScale);
       const displayH = Math.round(fit.h * previewScale);
+      const centerX = previewCanvas.width/2;
+      const centerY = previewCanvas.height/2;
+      const x = centerX - displayW/2;
+      const y = centerY - displayH/2;
       
       let wmToDraw = null;
-      if (colorAdaptAvailable) {
+      
+      if (selectedColorMode === 'adaptive' && colorAdaptAvailable) {
+        // АДАПТИВНЫЙ РЕЖИМ: создаем водяной знак, который меняет цвет в зависимости от фона под каждым пикселем
         try {
-          wmToDraw = recolorPerPixelFull(displayW, displayH);
+          wmToDraw = createAdaptiveWatermark(previewCtx, x, y, displayW, displayH);
+        } catch(e) {
+          console.warn('Ошибка создания адаптивного водяного знака:', e);
+          wmToDraw = null;
+        }
+      } else if (colorAdaptAvailable) {
+        // Статический режим (светлый/темный)
+        try {
+          wmToDraw = recolorPerPixelFull(displayW, displayH, selectedColorMode);
         } catch(e) {
           console.warn('Ошибка перекрашивания:', e);
           wmToDraw = null;
@@ -609,21 +633,19 @@ function renderPreview(){
       }
       
       if (!wmToDraw) {
-        drawWatermarkHighQuality(previewCtx, previewCanvas.width/2, previewCanvas.height/2, 
-                                displayW, displayH, false);
+        drawWatermarkHighQuality(previewCtx, centerX, centerY, displayW, displayH, selectedColorMode);
       } else {
         try {
-          previewCtx.drawImage(wmToDraw, 
-                              previewCanvas.width/2 - wmToDraw.width/2, 
-                              previewCanvas.height/2 - wmToDraw.height/2);
+          previewCtx.drawImage(wmToDraw, x, y);
         } catch(e) {
-          console.warn('Ошибка рисования перекрашенного watermark:', e);
+          console.warn('Ошибка рисования водяного знака:', e);
         }
       }
     }
   }
 
-  posInfo.textContent = `preview: adapt=${colorAdaptAvailable ? 'YES':'NO'} wm=${watermarkBitmap || watermarkImgElement ? 'loaded' : 'none'}`;
+  const modeInfo = selectedColorMode === 'adaptive' ? 'adaptive' : selectedColorMode;
+  posInfo.textContent = `preview: adapt=${colorAdaptAvailable ? 'YES':'NO'} mode=${modeInfo} wm=${watermarkBitmap || watermarkImgElement ? 'loaded' : 'none'}`;
 }
 
 // Композиция для экспорта
@@ -637,14 +659,29 @@ function compositeOffscreen(){
   if(watermarkBitmap || watermarkImgElement){
     const fit = computeWatermarkFitFull();
     const w = fit.w, h = fit.h;
+    const centerX = Math.round(srcWidth/2);
+    const centerY = Math.round(srcHeight/2);
+    const x = centerX - w/2;
+    const y = centerY - h/2;
+    
     let recolored = null;
-    if(colorAdaptAvailable){
-      recolored = recolorPerPixelFull(w, h);
+    
+    if (selectedColorMode === 'adaptive' && colorAdaptAvailable) {
+      // АДАПТИВНЫЙ РЕЖИМ для экспорта
+      try {
+        recolored = createAdaptiveWatermark(offscreenCtx, x, y, w, h);
+      } catch(e) {
+        console.warn('Ошибка создания адаптивного водяного знака при экспорте:', e);
+        recolored = null;
+      }
+    } else if(colorAdaptAvailable){
+      recolored = recolorPerPixelFull(w, h, selectedColorMode);
     }
+    
     if(recolored){
-      offscreenCtx.drawImage(recolored, Math.round(srcWidth/2 - w/2), Math.round(srcHeight/2 - h/2));
+      offscreenCtx.drawImage(recolored, x, y);
     } else {
-      drawWatermarkHighQuality(offscreenCtx, Math.round(srcWidth/2), Math.round(srcHeight/2), w, h, false);
+      drawWatermarkHighQuality(offscreenCtx, centerX, centerY, w, h, selectedColorMode);
     }
   }
 }
@@ -716,7 +753,28 @@ exportWebm.addEventListener('click', async ()=>{
         else if(srcVideo) tctx.drawImage(srcVideo,0,0,srcWidth,srcHeight); 
       }catch(e){}
       const fit = computeWatermarkFitFull();
-      if(fit) drawWatermarkHighQuality(tctx, srcWidth/2, srcHeight/2, fit.w, fit.h, false);
+      if(fit) {
+        const centerX = srcWidth/2;
+        const centerY = srcHeight/2;
+        const x = centerX - fit.w/2;
+        const y = centerY - fit.h/2;
+        
+        let wmToDraw = null;
+        
+        if (selectedColorMode === 'adaptive' && colorAdaptAvailable) {
+          try {
+            wmToDraw = createAdaptiveWatermark(tctx, x, y, fit.w, fit.h);
+          } catch(e) {
+            wmToDraw = null;
+          }
+        }
+        
+        if (wmToDraw) {
+          tctx.drawImage(wmToDraw, x, y);
+        } else {
+          drawWatermarkHighQuality(tctx, centerX, centerY, fit.w, fit.h, selectedColorMode);
+        }
+      }
       await new Promise(r=>setTimeout(r, 1000/fps));
     }
     setTimeout(()=>rec.stop(), 200);
@@ -764,13 +822,6 @@ function stopLoop(){
     rafId = null; 
   }
 }
-
-// Обработчики событий и инициализация
-thresholdInput.addEventListener('input', ()=>{ 
-  thresholdLabel.textContent = parseFloat(thresholdInput.value).toFixed(2); 
-  assessCanvasTaint();
-  renderPreview(); 
-});
 
 // Инициализация при загрузке
 window.addEventListener('load', () => {
