@@ -29,15 +29,17 @@
   .wm-btn.active {
     background: #007bff; color: white; border-color: #007bff; font-weight: bold;
   }
+  /* === MODIFIED: Removed styles for controls that no longer exist === */
+  /*
   .control-row { margin: 20px 0; }
   label { display: block; margin: 15px 0 8px; font-weight: 600; font-size: 1.1em; }
   input[type=range] { width: 100%; height: 10px; border-radius: 5px; background: #ddd; outline: none; }
+  */
   button#mainBtn {
     background: #007bff; color: white; border: none; padding: 16px 40px; font-size: 1.1em;
     border-radius: 12px; cursor: pointer; margin-top: 10px;
   }
   button#mainBtn:disabled { background: #888; cursor: not-allowed; }
-  /* Ensure canvas/img/video all scale correctly */
   .preview img, .preview video, .preview canvas { 
     max-width: 100%; 
     max-height: 70vh; 
@@ -51,7 +53,7 @@
 <body>
 
 <h1>Professional Single Watermark Tool</h1>
-<p>Perfect colors • Real-time preview • Zero artifacts</p>
+<p>Perfect colors • Zero artifacts</p>
 
 <div class="drop-zone" id="dropZone">
   Drop your photo or video here<br>or click to select
@@ -64,16 +66,6 @@
     <button type="button" class="wm-btn" data-wm="2">Watermark Version 2</button>
   </div>
 
-  <div class="control-row">
-    <label>Watermark Size: <span id="sizeVal">70</span>% of width</label>
-    <input type="range" min="10" max="100" value="70" id="size">
-  </div>
-
-  <div class="control-row">
-    <label>Opacity: <span id="opacityVal">80</span>%</label>
-    <input type="range" min="0" max="100" value="80" id="opacity">
-  </div>
-
   <button id="mainBtn">Download Watermarked File</button>
   <div id="progress" style="margin-top:15px; font-weight:bold;"></div>
 </div>
@@ -84,6 +76,10 @@
 // ==================== WATERMARKS ====================
 const WM1_SRC = 'watermarks/watermark1.png';
 const WM2_SRC = 'watermarks/watermark2.png';
+
+// === NEW: Hardcoded values for removed controls ===
+const DEFAULT_SIZE_PCT = 0.7; // 70%
+const DEFAULT_OPACITY = 0.8;  // 80%
 
 let wm1, wm2, activeWm = 1;
 let currentFile, isImage = false;
@@ -120,11 +116,12 @@ dropZone.ondrop = e => {
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 };
 
-// === NEW: Refs for live video preview ===
 let previewVideoElement = null;
 let videoPreviewActive = false;
 let previewCanvas = document.createElement('canvas'); // Reuse one canvas
 const previewCtx = previewCanvas.getContext('2d');
+// === NEW: Store the watermark used for the initial video preview ===
+let initialWatermarkForVideo = null;
 
 
 function handleFile(file) {
@@ -132,7 +129,6 @@ function handleFile(file) {
   isImage = file.type.startsWith('image/');
   const url = URL.createObjectURL(file);
 
-  // Stop any previous video loop
   videoPreviewActive = false; 
   previewVideoElement = null;
 
@@ -144,24 +140,24 @@ function handleFile(file) {
     const img = new Image();
     img.onload = () => {
       previewDiv.appendChild(img);
-      renderPreview(); // First render for image
+      renderPreview(); // First and *only* render for image
     };
     img.src = url;
   } else {
-    // === MODIFIED: Set up canvas for video preview ===
     previewVideoElement = document.createElement('video');
     previewVideoElement.src = url;
     previewVideoElement.muted = true;
     previewVideoElement.loop = true;
     previewVideoElement.playsInline = true;
     
-    // We append the CANVAS, not the video
     previewDiv.appendChild(previewCanvas);
 
     previewVideoElement.onloadedmetadata = () => {
-      // Set canvas to video's native size
       previewCanvas.width = previewVideoElement.videoWidth;
       previewCanvas.height = previewVideoElement.videoHeight;
+
+      // === MODIFIED: Store the *initial* watermark ===
+      initialWatermarkForVideo = activeWm === 1 ? wm1 : wm2;
 
       previewVideoElement.play();
       videoPreviewActive = true;
@@ -177,25 +173,17 @@ document.querySelectorAll('.wm-btn').forEach(btn => {
     btn.classList.add('active');
     activeWm = parseInt(btn.dataset.wm);
     
-    // MODIFIED: Only call renderPreview for images
-    if (isImage) {
-        renderPreview();
-    }
-    // Video loop will pick up 'activeWm' automatically
+    // === MODIFIED: Live preview is disabled ===
+    // We no longer call renderPreview() for images here.
+    // The video loop will ignore this change.
   };
 });
 
-// Live sliders
+// === MODIFIED: Removed 'Live sliders' event listeners ===
+/*
 document.getElementById('size').oninput =
-document.getElementById('opacity').oninput = function() {
-  document.getElementById(this.id + 'Val').textContent = this.value;
-  
-  // MODIFIED: Only call renderPreview for images
-  if (isImage) {
-    renderPreview();
-  }
-  // Video loop will pick up new values automatically
-};
+document.getElementById('opacity').oninput = function() { ... };
+*/
 
 // ==================== IMAGE PREVIEW (NO ARTIFACTS) ====================
 let offscreenCanvas = document.createElement('canvas'); // Reused for speed
@@ -211,36 +199,35 @@ function renderPreview() {
     offscreenCanvas.height = img.naturalHeight;
   }
 
-  // Fully clear previous content
   ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
   ctx.drawImage(img, 0, 0);
 
-  const sizePct = document.getElementById('size').value / 100;
-  const opacity = document.getElementById('opacity').value / 100;
-  const watermark = activeWm === 1 ? wm1 : wm2;
+  // === MODIFIED: Use hardcoded values ===
+  const sizePct = DEFAULT_SIZE_PCT;
+  const opacity = DEFAULT_OPACITY;
+  const watermark = activeWm === 1 ? wm1 : wm2; // Uses watermark active at *load time*
 
   drawCentered(ctx, watermark, sizePct, opacity, offscreenCanvas);
 
   img.src = offscreenCanvas.toDataURL('image/png');
 }
 
-// === NEW: Live Video Preview Loop (Artifact-Free) ===
+// === MODIFIED: Video loop now uses the stored initial watermark ===
 function startVideoPreviewLoop() {
   if (!videoPreviewActive || !previewVideoElement) return; // Stop loop if flag is false
 
-  // === THE FIX ===
-  // 1. Clear the canvas entirely to prevent trailing artifacts
+  // 1. Clear the canvas
   previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
 
   // 2. Draw the current video frame
   previewCtx.drawImage(previewVideoElement, 0, 0, previewCanvas.width, previewCanvas.height);
 
-  // 3. Get current settings and draw watermark
-  const sizePct = document.getElementById('size').value / 100;
-  const opacity = document.getElementById('opacity').value / 100;
-  const watermark = activeWm === 1 ? wm1 : wm2;
+  // 3. Get hardcoded settings and draw watermark
+  const sizePct = DEFAULT_SIZE_PCT;
+  const opacity = DEFAULT_OPACITY;
   
-  drawCentered(previewCtx, watermark, sizePct, opacity, previewCanvas);
+  // === MODIFIED: Use the watermark stored when the video was first loaded ===
+  drawCentered(previewCtx, initialWatermarkForVideo, sizePct, opacity, previewCanvas);
 
   // 4. Request the next frame
   requestAnimationFrame(startVideoPreviewLoop);
@@ -267,7 +254,6 @@ mainBtn.onclick = async () => {
   if (isImage) {
     await exportImage();
   } else {
-    // Pause live preview during export to free up resources
     videoPreviewActive = false; 
     if (previewVideoElement) previewVideoElement.pause();
     
@@ -276,7 +262,7 @@ mainBtn.onclick = async () => {
     // Resume preview
     if (previewVideoElement) previewVideoElement.play();
     videoPreviewActive = true;
-    startVideoPreviewLoop();
+    startVideoPreviewLoop(); // Restarts the loop (will use initial watermark)
   }
 
   mainBtn.disabled = false;
@@ -292,8 +278,10 @@ async function exportImage() {
 
   ctx.drawImage(img, 0, 0);
 
-  const sizePct = document.getElementById('size').value / 100;
-  const opacity = document.getElementById('opacity').value / 100;
+  // === MODIFIED: Use hardcoded values ===
+  const sizePct = DEFAULT_SIZE_PCT;
+  const opacity = DEFAULT_OPACITY;
+  // Export *does* use the currently selected watermark
   const watermark = activeWm === 1 ? wm1 : wm2;
 
   drawCentered(ctx, watermark, sizePct, opacity, canvas);
@@ -302,7 +290,6 @@ async function exportImage() {
 }
 
 async function exportVideo() {
-  // We can't use the preview video element as it's looped and muted
   const video = document.createElement('video');
   video.src = URL.createObjectURL(currentFile);
   await new Promise(r => video.onloadedmetadata = r);
@@ -318,8 +305,10 @@ async function exportVideo() {
   recorder.ondataavailable = e => chunks.push(e.data);
   recorder.onstop = () => download(new Blob(chunks, {type: 'video/webm'}), 'watermarked.webm');
 
-  const sizePct = document.getElementById('size').value / 100;
-  const opacity = document.getElementById('opacity').value / 100;
+  // === MODIFIED: Use hardcoded values ===
+  const sizePct = DEFAULT_SIZE_PCT;
+  const opacity = DEFAULT_OPACITY;
+  // Export *does* use the currently selected watermark
   const watermark = activeWm === 1 ? wm1 : wm2;
 
   recorder.start();
@@ -333,16 +322,13 @@ async function exportVideo() {
       recorder.stop();
       return;
     }
-    // This clearRect is also critical for the *export*
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
     ctx.drawImage(video, 0, 0);
     drawCentered(ctx, watermark, sizePct, opacity, canvas);
     
-    // Use requestAnimationFrame for smoother capture
     requestAnimationFrame(drawFrame); 
   };
   
-  // Start the draw loop
   drawFrame();
 }
 
