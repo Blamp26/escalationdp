@@ -37,7 +37,14 @@
     border-radius: 12px; cursor: pointer; margin-top: 10px;
   }
   button#mainBtn:disabled { background: #888; cursor: not-allowed; }
-  .preview img, .preview video { max-width: 100%; max-height: 70vh; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+  /* Ensure canvas/img/video all scale correctly */
+  .preview img, .preview video, .preview canvas { 
+    max-width: 100%; 
+    max-height: 70vh; 
+    border-radius: 16px; 
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2); 
+    background: #eee; /* BG for canvas */
+  }
   .hidden { display: none; }
 </style>
 </head>
@@ -78,7 +85,7 @@
 const WM1_SRC = 'watermarks/watermark1.png';
 const WM2_SRC = 'watermarks/watermark2.png';
 
-let wm1, wm2, activeWm = 1; // 1 or 2
+let wm1, wm2, activeWm = 1;
 let currentFile, isImage = false;
 
 // Preload both
@@ -113,12 +120,23 @@ dropZone.ondrop = e => {
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 };
 
+// === NEW: Refs for live video preview ===
+let previewVideoElement = null;
+let videoPreviewActive = false;
+let previewCanvas = document.createElement('canvas'); // Reuse one canvas
+const previewCtx = previewCanvas.getContext('2d');
+
+
 function handleFile(file) {
   currentFile = file;
   isImage = file.type.startsWith('image/');
   const url = URL.createObjectURL(file);
 
-  previewDiv.innerHTML = '';
+  // Stop any previous video loop
+  videoPreviewActive = false; 
+  previewVideoElement = null;
+
+  previewDiv.innerHTML = ''; // Clear previous content
   previewDiv.classList.remove('hidden');
   controls.classList.remove('hidden');
 
@@ -126,13 +144,29 @@ function handleFile(file) {
     const img = new Image();
     img.onload = () => {
       previewDiv.appendChild(img);
-      renderPreview(); // First render
+      renderPreview(); // First render for image
     };
     img.src = url;
   } else {
-    const video = document.createElement('video');
-    video.src = url; video.controls = true; video.muted = true;
-    previewDiv.appendChild(video);
+    // === MODIFIED: Set up canvas for video preview ===
+    previewVideoElement = document.createElement('video');
+    previewVideoElement.src = url;
+    previewVideoElement.muted = true;
+    previewVideoElement.loop = true;
+    previewVideoElement.playsInline = true;
+    
+    // We append the CANVAS, not the video
+    previewDiv.appendChild(previewCanvas);
+
+    previewVideoElement.onloadedmetadata = () => {
+      // Set canvas to video's native size
+      previewCanvas.width = previewVideoElement.videoWidth;
+      previewCanvas.height = previewVideoElement.videoHeight;
+
+      previewVideoElement.play();
+      videoPreviewActive = true;
+      startVideoPreviewLoop(); // Start the live render loop
+    };
   }
 }
 
@@ -142,7 +176,12 @@ document.querySelectorAll('.wm-btn').forEach(btn => {
     document.querySelectorAll('.wm-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeWm = parseInt(btn.dataset.wm);
-    if (isImage) renderPreview();
+    
+    // MODIFIED: Only call renderPreview for images
+    if (isImage) {
+        renderPreview();
+    }
+    // Video loop will pick up 'activeWm' automatically
   };
 });
 
@@ -150,10 +189,15 @@ document.querySelectorAll('.wm-btn').forEach(btn => {
 document.getElementById('size').oninput =
 document.getElementById('opacity').oninput = function() {
   document.getElementById(this.id + 'Val').textContent = this.value;
-  if (isImage) renderPreview();
+  
+  // MODIFIED: Only call renderPreview for images
+  if (isImage) {
+    renderPreview();
+  }
+  // Video loop will pick up new values automatically
 };
 
-// ==================== PERFECT PREVIEW (NO ARTIFACTS) ====================
+// ==================== IMAGE PREVIEW (NO ARTIFACTS) ====================
 let offscreenCanvas = document.createElement('canvas'); // Reused for speed
 
 function renderPreview() {
@@ -162,13 +206,12 @@ function renderPreview() {
   const img = previewDiv.querySelector('img');
   const ctx = offscreenCanvas.getContext('2d');
 
-  // Critical: Always match natural dimensions
   if (offscreenCanvas.width !== img.naturalWidth || offscreenCanvas.height !== img.naturalHeight) {
     offscreenCanvas.width = img.naturalWidth;
     offscreenCanvas.height = img.naturalHeight;
   }
 
-  // Fully clear previous content (eliminates ghosting)
+  // Fully clear previous content
   ctx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
   ctx.drawImage(img, 0, 0);
 
@@ -178,9 +221,31 @@ function renderPreview() {
 
   drawCentered(ctx, watermark, sizePct, opacity, offscreenCanvas);
 
-  // Use PNG data URL = perfect color accuracy (no JPEG artifacts)
   img.src = offscreenCanvas.toDataURL('image/png');
 }
+
+// === NEW: Live Video Preview Loop (Artifact-Free) ===
+function startVideoPreviewLoop() {
+  if (!videoPreviewActive || !previewVideoElement) return; // Stop loop if flag is false
+
+  // === THE FIX ===
+  // 1. Clear the canvas entirely to prevent trailing artifacts
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+
+  // 2. Draw the current video frame
+  previewCtx.drawImage(previewVideoElement, 0, 0, previewCanvas.width, previewCanvas.height);
+
+  // 3. Get current settings and draw watermark
+  const sizePct = document.getElementById('size').value / 100;
+  const opacity = document.getElementById('opacity').value / 100;
+  const watermark = activeWm === 1 ? wm1 : wm2;
+  
+  drawCentered(previewCtx, watermark, sizePct, opacity, previewCanvas);
+
+  // 4. Request the next frame
+  requestAnimationFrame(startVideoPreviewLoop);
+}
+
 
 function drawCentered(ctx, wmImg, scalePct, opacity, canvas) {
   const targetW = canvas.width * scalePct;
@@ -202,7 +267,16 @@ mainBtn.onclick = async () => {
   if (isImage) {
     await exportImage();
   } else {
+    // Pause live preview during export to free up resources
+    videoPreviewActive = false; 
+    if (previewVideoElement) previewVideoElement.pause();
+    
     await exportVideo();
+
+    // Resume preview
+    if (previewVideoElement) previewVideoElement.play();
+    videoPreviewActive = true;
+    startVideoPreviewLoop();
   }
 
   mainBtn.disabled = false;
@@ -224,10 +298,11 @@ async function exportImage() {
 
   drawCentered(ctx, watermark, sizePct, opacity, canvas);
 
-  canvas.toBlob(blob => download(blob, 'watermarked.png'), 'image/png'); // PNG = perfect quality
+  canvas.toBlob(blob => download(blob, 'watermarked.png'), 'image/png');
 }
 
 async function exportVideo() {
+  // We can't use the preview video element as it's looped and muted
   const video = document.createElement('video');
   video.src = URL.createObjectURL(currentFile);
   await new Promise(r => video.onloadedmetadata = r);
@@ -237,7 +312,7 @@ async function exportVideo() {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
 
-  const stream = canvas.captureStream(30);
+  const stream = canvas.captureStream(30); // 30 FPS
   const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
   const chunks = [];
   recorder.ondataavailable = e => chunks.push(e.data);
@@ -249,17 +324,26 @@ async function exportVideo() {
 
   recorder.start();
   video.currentTime = 0;
+  video.muted = true; // Ensure export is silent
   video.play();
 
-  function drawFrame() {
-    if (video.ended) { recorder.stop(); return; }
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let drawFrame;
+  drawFrame = () => {
+    if (video.paused || video.ended) {
+      recorder.stop();
+      return;
+    }
+    // This clearRect is also critical for the *export*
+    ctx.clearRect(0, 0, canvas.width, canvas.height); 
     ctx.drawImage(video, 0, 0);
     drawCentered(ctx, watermark, sizePct, opacity, canvas);
-    requestAnimationFrame(drawFrame);
-  }
-
-  video.onplay = drawFrame;
+    
+    // Use requestAnimationFrame for smoother capture
+    requestAnimationFrame(drawFrame); 
+  };
+  
+  // Start the draw loop
+  drawFrame();
 }
 
 function download(blob, name) {
@@ -267,6 +351,7 @@ function download(blob, name) {
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
+  URL.revokeObjectURL(a.href); // Clean up
 }
 </script>
 </body>
