@@ -3,554 +3,785 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Image & Watermark Studio — dynamic color (patched)</title>
+<title>Watermark studio — live + Hi-quality watermark</title>
 <style>
-  :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
-  html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,system-ui,Arial;background:linear-gradient(180deg,#081224 0%, #071423 100%);color:#e6eef6}
-  .app{max-width:1100px;margin:28px auto;padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));box-shadow:0 6px 30px rgba(2,6,23,0.7)}
+  :root{--card:#0b1220;--muted:#9aa4b2;--accent:#60a5fa}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Arial;background:#071423;color:#e6eef6}
+  .app{max-width:1100px;margin:20px auto;padding:14px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:0 6px 30px rgba(2,6,23,0.6)}
   header{display:flex;gap:12px;align-items:center}
-  h1{font-size:20px;margin:0}
-  .layout{display:grid;grid-template-columns:380px 1fr;gap:18px;margin-top:16px}
+  h1{font-size:18px;margin:0}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:14px;margin-top:12px}
   .panel{background:var(--card);padding:12px;border-radius:10px}
   label{display:block;font-size:13px;margin:8px 0 6px;color:var(--muted)}
-  input[type=file]{width:100%}
-  select,input,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+  input[type=file],select,input,button{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
   .row{display:flex;gap:8px}
   .preview-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
   #previewCanvas{background:#08121a;border-radius:6px;max-width:100%;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.02)}
-  .controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .muted{color:var(--muted);font-size:13px}
   .btn{background:linear-gradient(90deg,var(--accent),#3b82f6);border:none;color:#05233a;padding:8px;border-radius:8px;cursor:pointer}
-  .small{font-size:13px;padding:6px}
-  .footer{margin-top:10px;font-size:13px;color:var(--muted)}
-  .watermark-list{display:flex;gap:8px;flex-wrap:wrap}
   .wm-thumb{width:60px;height:40px;border-radius:6px;object-fit:contain;cursor:pointer;border:2px solid transparent}
   .wm-thumb.selected{border-color:#60a5fa}
-  .hint{font-size:12px;color:#9fb0c8}
-  .status-badge{display:inline-block;padding:6px;border-radius:8px;font-size:12px;background:rgba(255,255,255,0.03);color:var(--muted)}
   .status-on{color:#c7f9d9}
   .status-off{color:#ffc7c7}
+  .hint{font-size:12px;color:#9fb0c8}
+  .overlay-play{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:18px;color:#9fb0c8;pointer-events:none;opacity:0.9}
+  .threshold-info{display:flex;justify-content:space-between;margin-top:4px}
 </style>
 </head>
 <body>
 <div class="app">
   <header>
-    <h1>Image & Watermark Studio</h1>
-    <div class="muted">Динамическая адаптация цвета: включена, если браузер позволяет читать пиксели (CORS). См. подсказки внизу.</div>
+    <h1>Watermark studio — live + hi-quality</h1>
+    <div class="muted">Теперь live-превью надежно и вотермарка рендерится более качественно; тайлинг включён, если нужно.</div>
   </header>
 
   <div class="layout">
     <div class="panel" style="height:720px;overflow:auto">
-      <label>1) Загрузите фото</label>
+      <label>1) Загрузите фото или видео (локально)</label>
       <input id="fileInput" type="file" accept="image/*,video/*" />
-      <div class="hint">Поддерживаемые форматы: JPEG, PNG, WebP. Видео: MP4/WebM (используется как источник для превью/видео-экспорта).</div>
+      <div class="hint">Локальные файлы надёжно позволяют читать пиксели. Внешние — только с CORS.</div>
 
-      <label>2) Выберите водяной знак</label>
-      <div class="watermark-list" id="wmList"></div>
-
-      <label class="muted">Или загрузите свой файл вотермарки (ожидается 1920×1080). Он будет масштабироваться по высоте и цвет автоматически адаптируется к фону (если доступна информация о пикселях).</label>
+      <label>2) Выберите или загрузите водяной знак</label>
+      <div id="wmList" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"></div>
       <input id="wmUpload" type="file" accept="image/*" />
 
-      <label>Параметры цвета</label>
-      <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-        <div class="muted">Порог яркости: <span id="thresholdLabel">0.55</span></div>
-        <div style="flex:1"><input type="range" id="threshold" min="0" max="1" step="0.01" value="0.55" /></div>
+      <label>Настройки водяного знака</label>
+      
+      <div style="margin-bottom:12px">
+        <div class="threshold-info">
+          <span class="muted">Порог яркости:</span>
+          <span id="thresholdLabel" class="muted">0.55</span>
+        </div>
+        <input id="threshold" type="range" min="0" max="1" step="0.01" value="0.55" />
+        <div class="hint">Ниже порога = белый watermark, выше = чёрный</div>
       </div>
 
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <div class="status-badge" id="adaptStatus">Color adapt: <span id="adaptFlag" class="status-off">UNKNOWN</span></div>
-        <div class="muted" style="flex:1" id="statusReason">Статус: ожидается загрузка изображения</div>
+        <div class="muted">Адаптация цвета:</div>
+        <div id="adaptFlag" class="muted">UNKNOWN</div>
       </div>
 
       <label>Экспорт</label>
       <div class="row">
-        <button class="btn" id="exportImage">Экспорт PNG</button>
-        <button class="btn" id="exportJpeg">Экспорт JPEG</button>
+        <button class="btn" id="exportPng">Экспорт PNG</button>
+        <button class="btn" id="exportJpg">Экспорт JPG</button>
       </div>
       <div style="height:8px"></div>
       <div class="row">
-        <button class="btn" id="exportVideo">Экспорт WebM (3s анимация)</button>
-        <button class="small" id="reset">Сброс</button>
+        <button class="btn" id="exportWebm">Экспорт WebM</button>
+        <button class="btn" id="reset">Сброс</button>
       </div>
 
-      <div class="footer">Важно: если исходное изображение загружено с другого домена без CORS-заголовков, анализ пикселей (и динамическая смена цвета) невозможен — в этом случае цвет остаётся определён по умолчанию. Используйте raw.githubusercontent.com для GitHub-ресурсов или загрузите файл локально.</div>
+      <div class="muted" style="margin-top:8px">Если адаптация выключена — причина в CORS/tainted; тогда пер-пиксельная смена невозможна.</div>
     </div>
 
     <div class="panel preview-wrap">
       <label class="muted">Превью</label>
-      <div id="previewHolder" style="width:100%;height:640px;display:flex;align-items:center;justify-content:center;position:relative;padding:0;margin:0">
+      <div id="previewHolder" style="width:100%;height:640px;display:flex;align-items:center;justify-content:center;position:relative">
         <canvas id="previewCanvas"></canvas>
-        <div id="overlayHint" style="position:absolute;right:8px;bottom:8px;background:rgba(2,6,23,0.6);padding:6px;border-radius:6px;font-size:12px;color:var(--muted)">Водяной знак центрируется и масштабируется по высоте. Цвет адаптируется, если разрешено чтение пикселей.</div>
+        <div id="playOverlay" class="overlay-play" style="display:none">Нажмите, чтобы разрешить воспроизведение</div>
       </div>
 
-      <div style="width:100%;display:flex;gap:8px;margin-top:10px;align-items:center">
-        <div style="flex:1">
-          <div class="muted">Изображение:</div>
-          <div id="imageInfo" class="muted">No image loaded</div>
-        </div>
-        <div style="width:220px">
-          <div class="muted">Инфо:</div>
-          <div id="posInfo" class="muted">-</div>
-        </div>
+      <div style="display:flex;gap:8px;margin-top:10px;align-items:center">
+        <div style="flex:1"><div class="muted">Source:</div><div id="imageInfo" class="muted">No source</div></div>
+        <div style="width:280px"><div class="muted">Info:</div><div id="posInfo" class="muted">-</div></div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-// === CONFIG ===
+/* ======= УЛУЧШЕННЫЙ КОД С ИСПРАВЛЕННЫМ ПОРОГОМ ЯРКОСТИ ======= */
+
 const watermarkPaths = [
   'https://raw.githubusercontent.com/Blamp26/escalationdp/main/watermark-tool/watermarks/watermark1.png',
   'https://raw.githubusercontent.com/Blamp26/escalationdp/main/watermark-tool/watermarks/watermark2.png'
 ];
 
-// UI refs
 const fileInput = document.getElementById('fileInput');
-const previewCanvas = document.getElementById('previewCanvas');
-const previewCtx = previewCanvas.getContext('2d');
-const wmList = document.getElementById('wmList');
 const wmUpload = document.getElementById('wmUpload');
-const exportImageBtn = document.getElementById('exportImage');
-const exportJpegBtn = document.getElementById('exportJpeg');
-const exportVideoBtn = document.getElementById('exportVideo');
-const resetBtn = document.getElementById('reset');
-const imageInfo = document.getElementById('imageInfo');
-const posInfo = document.getElementById('posInfo');
+const wmList = document.getElementById('wmList');
+const previewCanvas = document.getElementById('previewCanvas');
+const previewCtx = previewCanvas.getContext('2d', {alpha:true});
 const thresholdInput = document.getElementById('threshold');
 const thresholdLabel = document.getElementById('thresholdLabel');
-const adaptStatus = document.getElementById('adaptStatus');
 const adaptFlag = document.getElementById('adaptFlag');
-const statusReason = document.getElementById('statusReason');
+const imageInfo = document.getElementById('imageInfo');
+const posInfo = document.getElementById('posInfo');
+const exportPng = document.getElementById('exportPng');
+const exportJpg = document.getElementById('exportJpg');
+const exportWebm = document.getElementById('exportWebm');
+const resetBtn = document.getElementById('reset');
+const previewHolder = document.getElementById('previewHolder');
+const playOverlay = document.getElementById('playOverlay');
 
-let srcImage = null;
-let srcVideo = null;
-let watermarkImg = null;
-let watermarkSelection = null;
-let srcWidth = 0, srcHeight = 0;
+let srcImage = null, srcVideo = null, srcWidth = 0, srcHeight = 0;
+let watermarkBitmap = null;
+let watermarkImgElement = null;
 let offscreenCanvas = document.createElement('canvas');
-let offscreenCtx = offscreenCanvas.getContext('2d');
-
-const wmState = {opacity:1, rotation:0};
+let offscreenCtx = offscreenCanvas.getContext('2d', {alpha:true});
 let previewScale = 1;
-
-// whether color adaptation (reading pixels) is available for current source/canvas
 let colorAdaptAvailable = false;
+let videoElement = null;
+let loopRunning = false;
+let rafId = null;
 
-// === HELPERS ===
-function setAdaptStatus(on, reason='') {
-  colorAdaptAvailable = !!on;
-  if(on){
-    adaptFlag.textContent = 'ON';
-    adaptFlag.classList.remove('status-off'); adaptFlag.classList.add('status-on');
-    statusReason.textContent = reason || 'Адаптация цвета доступна';
-  } else {
-    adaptFlag.textContent = 'OFF';
-    adaptFlag.classList.remove('status-on'); adaptFlag.classList.add('status-off');
-    statusReason.textContent = reason || 'Адаптация цвета недоступна (CORS / tainted canvas)';
+// Установка высокого качества рендеринга
+function setHighQuality(ctx){
+  if(ctx){
+    ctx.imageSmoothingEnabled = true;
+    try { ctx.imageSmoothingQuality = 'high'; } catch(e){}
   }
 }
 
-// Create thumbnails (use fetch->blob so we avoid direct cross-origin image assignment)
-function createWatermarkThumbnails(){
-  watermarkPaths.forEach((p,i)=>{
+// Создание видео элемента
+function ensureVideoElement(){
+  if(videoElement) return videoElement;
+  videoElement = document.createElement('video');
+  videoElement.style.display = 'none';
+  videoElement.muted = true;
+  videoElement.loop = true;
+  videoElement.playsInline = true;
+  document.body.appendChild(videoElement);
+
+  videoElement.addEventListener('playing', ()=>{ 
+    assessCanvasTaint(); 
+    startLoop(); 
+    playOverlay.style.display = 'none'; 
+  });
+  videoElement.addEventListener('play', ()=>{ 
+    assessCanvasTaint(); 
+    startLoop(); 
+    playOverlay.style.display = 'none'; 
+  });
+  videoElement.addEventListener('canplay', ()=>{ 
+    assessCanvasTaint(); 
+    startLoop(); 
+  });
+  videoElement.addEventListener('error', (e)=>{ 
+    console.warn('video error', e); 
+  });
+  return videoElement;
+}
+
+// Проверка доступности canvas для чтения пикселей
+function assessCanvasTaint(){
+  const testCanvas = document.createElement('canvas');
+  testCanvas.width = 2;
+  testCanvas.height = 2;
+  const testCtx = testCanvas.getContext('2d');
+  
+  try {
+    testCtx.fillRect(0, 0, 1, 1);
+    testCtx.getImageData(0, 0, 1, 1);
+    colorAdaptAvailable = true;
+    adaptFlag.textContent = 'ON';
+    adaptFlag.className = 'status-on';
+  } catch(e) {
+    colorAdaptAvailable = false;
+    adaptFlag.textContent = 'OFF (CORS)';
+    adaptFlag.className = 'status-off';
+  }
+}
+
+// Создание миниатюр водяных знаков
+async function createThumbnails(){
+  wmList.innerHTML = '';
+  for(const p of watermarkPaths){
     const img = document.createElement('img');
     img.className = 'wm-thumb';
     img.title = p;
-    img.dataset.src = p;
-    img.onclick = ()=>selectWatermark(p,img);
-    // show placeholder until loaded via fetch
-    img.src = '';
+    img.onclick = ()=>selectWatermarkUrl(p,img);
     wmList.appendChild(img);
-    // load via fetch for safer CORS behavior; if fetch fails, leave blank and user can still upload local file
-    (async ()=>{
-      try{
-        const res = await fetch(p, {mode:'cors'});
-        if(!res.ok) throw new Error('HTTP ' + res.status);
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        img.src = url;
-        // keep objectURL for later; we'll fetch again when selecting to ensure we create controlled object
-      }catch(e){
-        console.warn('Thumbnail fetch failed for', p, e);
-        img.alt = 'err';
-        img.style.opacity = '0.5';
-      }
-    })();
-  });
-}
-
-async function selectWatermark(path, thumbEl){
-  watermarkSelection = {type:'path', src:path};
-  document.querySelectorAll('.wm-thumb').forEach(t=>t.classList.remove('selected'));
-  if(thumbEl) thumbEl.classList.add('selected');
-  await loadWatermark(path);
-}
-
-// Robust loadWatermark: supports File or URL. Uses fetch(blob) for URLs to avoid cross-origin issues.
-// IMPORTANT: we DO NOT set img.src directly to remote URL without fetch.
-async function loadWatermark(src) {
-  try {
-    if (src instanceof File) {
-      const url = URL.createObjectURL(src);
-      const img = new Image();
-      img.onload = () => { watermarkImg = img; URL.revokeObjectURL(url); renderPreview(); assessCanvasTaint(); };
-      img.onerror = () => alert('Не удалось загрузить локальный файл вотермарки');
+    try{
+      const res = await fetch(p, {mode:'cors'});
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
       img.src = url;
-      return;
+    }catch(e){
+      img.style.opacity = '0.5';
+      img.alt = 'err';
+      console.warn('thumb fetch fail', p, e);
     }
-    if (typeof src === 'string') {
-      try {
-        const res = await fetch(src, { mode: 'cors' });
-        if (!res.ok) throw new Error('Fetch failed: ' + res.status);
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => { watermarkImg = img; URL.revokeObjectURL(url); renderPreview(); assessCanvasTaint(); };
-        img.onerror = () => alert('Не удалось загрузить вотермарку (image onload error)');
-        img.src = url;
-        return;
-      } catch (fetchErr) {
-        console.warn('Fetch failed for watermark URL:', fetchErr);
-        alert('Не удалось получить вотермарку через fetch. Сервер не отдаёт CORS-заголовки или ответ не является изображением. Адаптация цвета недоступна. Загрузите вотермарку локально или используйте raw.githubusercontent.com.');
-        return;
-      }
-    }
-  } catch (err) {
-    alert('Ошибка загрузки вотермарки: ' + err.message);
   }
 }
 
-// load source image/video from local file (objectURL) — this is safe for pixel reading
-fileInput.addEventListener('change', async e=>{
-  const f = e.target.files[0];
+async function selectWatermarkUrl(url, thumbEl){
+  document.querySelectorAll('.wm-thumb').forEach(t=>t.classList.remove('selected'));
+  if(thumbEl) thumbEl.classList.add('selected');
+  await loadWatermarkFromUrl(url);
+}
+
+// Загрузка водяного знака
+async function loadWatermarkFromUrl(url){
+  try{
+    const res = await fetch(url, {mode:'cors'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const blob = await res.blob();
+    const bitmap = await createImageBitmap(blob, {resizeQuality:'high'});
+    watermarkBitmap = bitmap;
+    
+    const el = new Image();
+    el.onload = () => {
+      watermarkImgElement = el;
+      assessCanvasTaint();
+      renderPreview();
+    };
+    el.src = URL.createObjectURL(blob);
+    
+  }catch(e){
+    console.warn('loadWatermarkFromUrl failed', e);
+    alert('Не удалось загрузить вотермарку через fetch (возможно CORS). Попробуйте загрузить локально.');
+  }
+}
+
+wmUpload.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const blob = f;
+    const bitmap = await createImageBitmap(blob, {resizeQuality:'high'});
+    watermarkBitmap = bitmap;
+    const el = new Image();
+    el.onload = () => {
+      watermarkImgElement = el;
+      assessCanvasTaint();
+      renderPreview();
+    };
+    el.src = URL.createObjectURL(blob);
+  }catch(err){
+    console.error('wmUpload error', err);
+  }
+});
+
+// Загрузка исходного файла
+fileInput.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; 
   if(!f) return;
+  
   const url = URL.createObjectURL(f);
+  imageInfo.textContent = `${f.name} (${f.type || 'file'})`;
+  
   if(f.type.startsWith('image/')){
     const img = new Image();
     img.crossOrigin = 'anonymous';
+    
     img.onload = ()=>{
-      srcImage = img; srcVideo = null;
-      srcWidth = img.naturalWidth; srcHeight = img.naturalHeight;
-      offscreenCanvas.width = srcWidth; offscreenCanvas.height = srcHeight;
-      updateInfo(); fitPreviewCanvas(); renderPreview(); drawSourceToOffscreen(); assessCanvasTaint();
+      srcImage = img; 
+      srcVideo = null;
+      srcWidth = img.naturalWidth; 
+      srcHeight = img.naturalHeight;
+      
+      offscreenCanvas.width = srcWidth; 
+      offscreenCanvas.height = srcHeight;
+      
+      fitPreviewCanvas(); 
+      
+      setTimeout(() => {
+        assessCanvasTaint();
+        renderPreview();
+      }, 100);
+      
       URL.revokeObjectURL(url);
     };
-    img.onerror = (ev)=>{ alert('Не удалось загрузить изображение'); console.error(ev); URL.revokeObjectURL(url); };
-    img.src = url;
-  } else if(f.type.startsWith('video/')){
-    const vid = document.createElement('video');
-    vid.src = url; vid.muted = true; vid.loop = true; vid.autoplay = true; vid.playsInline = true;
-    vid.onloadeddata = ()=>{
-      srcVideo = vid; srcImage = null;
-      srcWidth = vid.videoWidth; srcHeight = vid.videoHeight;
-      offscreenCanvas.width = srcWidth; offscreenCanvas.height = srcHeight;
-      updateInfo(); fitPreviewCanvas(); renderPreview(); drawSourceToOffscreen();
-      try{ vid.play(); }catch(e){}
-      assessCanvasTaint();
+    
+    img.onerror = (ev)=>{
+      alert('Не удалось загрузить изображение'); 
+      console.error(ev); 
+      URL.revokeObjectURL(url);
     };
-    vid.onerror = ()=>{ alert('Не удалось загрузить видео'); URL.revokeObjectURL(url); };
+    
+    img.src = url;
+    
+  } else if(f.type.startsWith('video/')){
+    ensureVideoElement();
+    try{
+      videoElement.pause();
+      videoElement.removeAttribute('src');
+      videoElement.src = url;
+      videoElement.load();
+      
+      videoElement.onloadedmetadata = async ()=>{
+        srcWidth = videoElement.videoWidth; 
+        srcHeight = videoElement.videoHeight;
+        offscreenCanvas.width = srcWidth; 
+        offscreenCanvas.height = srcHeight;
+        fitPreviewCanvas();
+        
+        srcVideo = videoElement;
+        srcImage = null;
+        
+        setTimeout(() => {
+          assessCanvasTaint();
+          renderPreview();
+        }, 100);
+        
+        try{
+          await videoElement.play();
+        }catch(playErr){
+          playOverlay.style.display = 'block';
+          startLoop();
+        }
+      };
+    }catch(err){
+      console.warn('video load/play error', err);
+      alert('Видео могло не запуститься автоматически — кликните по превью, чтобы разрешить воспроизведение.');
+    }
+  } else {
+    alert('Неизвестный тип файла');
   }
 });
 
-// when user uploads watermark file locally
-wmUpload.addEventListener('change', e=>{
-  const f = e.target.files[0]; if(!f) return;
-  watermarkSelection = {type:'file', file:f};
-  loadWatermark(f);
+// Клик по превью для управления воспроизведением
+previewHolder.addEventListener('click', async ()=>{
+  if(!srcVideo) return;
+  try{
+    if(videoElement.paused){
+      await videoElement.play();
+      playOverlay.style.display = 'none';
+    } else {
+      videoElement.pause();
+      playOverlay.style.display = 'block';
+    }
+  }catch(e){
+    console.warn('play toggle failed', e);
+  }
 });
 
-// adjust preview canvas to fit
+// Подгонка размера canvas превью
 function fitPreviewCanvas(){
-  const holder = document.getElementById('previewHolder');
-  const maxW = holder.clientWidth; const maxH = 640;
-  if(!srcWidth || !srcHeight){ previewCanvas.width = 800; previewCanvas.height = 450; previewScale = 1; return; }
+  const holder = previewHolder;
+  const maxW = holder.clientWidth, maxH = 640;
+  if(!srcWidth || !srcHeight){ 
+    previewCanvas.width = 800; 
+    previewCanvas.height = 450; 
+    previewScale = 1; 
+    return; 
+  }
   const scale = Math.min(maxW/srcWidth, maxH/srcHeight, 1);
   previewScale = scale;
   previewCanvas.width = Math.round(srcWidth*scale);
   previewCanvas.height = Math.round(srcHeight*scale);
-  previewCanvas.style.width = previewCanvas.width+'px';
-  previewCanvas.style.height = previewCanvas.height+'px';
+  previewCanvas.style.width = previewCanvas.width + 'px';
+  previewCanvas.style.height = previewCanvas.height + 'px';
+  setHighQuality(previewCtx);
 }
 
-function updateInfo(){ if(srcWidth) imageInfo.textContent = `Source: ${srcWidth} × ${srcHeight} px`; else imageInfo.textContent = 'No image loaded'; }
-function clearPreview(){ previewCtx.clearRect(0,0,previewCanvas.width,previewCanvas.height); }
-
-// watermark scales to image height
-function computeWatermarkFit(){
-  if(!watermarkImg || !srcWidth || !srcHeight) return null;
-  const scaleFactor = srcHeight / watermarkImg.naturalHeight;
-  const w = Math.round(watermarkImg.naturalWidth * scaleFactor);
-  const h = Math.round(watermarkImg.naturalHeight * scaleFactor);
+// Вычисление размера водяного знака для полного разрешения
+function computeWatermarkFitFull(){
+  if(!watermarkBitmap && !watermarkImgElement) return null;
+  if(!srcWidth || !srcHeight) return null;
+  
+  const wmWidth = watermarkBitmap ? watermarkBitmap.width : watermarkImgElement.naturalWidth;
+  const wmHeight = watermarkBitmap ? watermarkBitmap.height : watermarkImgElement.naturalHeight;
+  
+  const scaleFactor = srcHeight / wmHeight;
+  const w = Math.round(wmWidth * scaleFactor);
+  const h = Math.round(wmHeight * scaleFactor);
   return {w,h};
 }
 
-// Try reading pixels from a canvas to detect taint.
-function isCanvasReadable(ctx){
-  try{
-    // try a tiny read
-    ctx.getImageData(0,0,1,1);
-    return true;
-  }catch(e){
-    return false;
+// УЛУЧШЕННАЯ ФУНКЦИЯ: Рисование водяного знака с высоким качеством
+function drawWatermarkHighQuality(ctx, centerX, centerY, targetW, targetH, usePerPixel=true){
+  if(!watermarkBitmap && watermarkImgElement) {
+    ctx.save(); 
+    setHighQuality(ctx); 
+    ctx.globalAlpha = 1;
+    ctx.drawImage(watermarkImgElement, centerX - targetW/2, centerY - targetH/2, targetW, targetH);
+    ctx.restore();
+    return;
   }
-}
-
-// draw current source into offscreenCanvas (full resolution)
-function drawSourceToOffscreen(){
-  if(!srcWidth || !srcHeight) return;
-  try{
-    offscreenCtx.clearRect(0,0,offscreenCanvas.width,offscreenCanvas.height);
-    if(srcImage) offscreenCtx.drawImage(srcImage, 0, 0, srcWidth, srcHeight);
-    else if(srcVideo){ try{ offscreenCtx.drawImage(srcVideo,0,0,srcWidth,srcHeight); }catch(e){} }
-  }catch(e){
-    console.warn('drawSourceToOffscreen failed', e);
-  }
-}
-
-// assess whether canvas is tainted and update UI
-function assessCanvasTaint(){
-  // try preview canvas first (scaled)
-  try{
-    // draw preview into previewCtx to ensure it's present
-    clearPreview();
-    if(srcImage) previewCtx.drawImage(srcImage, 0, 0, srcWidth*previewScale, srcHeight*previewScale);
-    else if(srcVideo){ try{ previewCtx.drawImage(srcVideo,0,0,srcWidth*previewScale,srcHeight*previewScale); }catch(e){} }
-
-    if(isCanvasReadable(previewCtx)){
-      setAdaptStatus(true, 'Чтение пикселей доступно (preview)');
-      return;
+  
+  const srcW = watermarkBitmap.width, srcH = watermarkBitmap.height;
+  
+  // Тайлинг, если водяной знак слишком узкий
+  if(srcW < targetW * 0.55 && watermarkImgElement){
+    const tileCanvas = document.createElement('canvas');
+    tileCanvas.width = Math.max(1, Math.round(targetW));
+    tileCanvas.height = Math.max(1, Math.round(targetH));
+    const tctx = tileCanvas.getContext('2d');
+    setHighQuality(tctx);
+    const stampW = Math.round(srcW * (targetH / srcH));
+    const stampH = Math.round(targetH);
+    let x = 0;
+    while(x < tileCanvas.width){
+      tctx.drawImage(watermarkBitmap, 0, 0, srcW, srcH, x, 0, stampW, stampH);
+      x += stampW;
     }
-  }catch(e){
-    // ignore
-  }
-  // fallback: try offscreen (full resolution)
-  try{
-    drawSourceToOffscreen();
-    if(isCanvasReadable(offscreenCtx)){
-      setAdaptStatus(true, 'Чтение пикселей доступно (offscreen)');
+    
+    // ИСПРАВЛЕННАЯ ЛОГИКА ПОРОГА ЯРКОСТИ
+    if(colorAdaptAvailable && usePerPixel){
+      let avgLum = 0.5;
+      try {
+        const sampleW = Math.max(4, Math.round(targetW * 0.2));
+        const sampleH = Math.max(4, Math.round(targetH * 0.2));
+        const sx = Math.max(0, Math.round(centerX - sampleW/2));
+        const sy = Math.max(0, Math.round(centerY - sampleH/2));
+        const data = ctx.getImageData(sx, sy, sampleW, sampleH).data;
+        let sum=0, count=0;
+        
+        // Правильное вычисление яркости с учетом альфа-канала
+        for(let i=0;i<data.length;i+=4){ 
+          const a=data[i+3]; 
+          if(a<10) continue; // Пропускаем прозрачные пиксели
+          const r=data[i], g=data[i+1], b=data[i+2]; 
+          // Формула для относительной яркости
+          const luminance = (0.299*r + 0.587*g + 0.114*b) / 255;
+          sum += luminance; 
+          count++; 
+        }
+        if(count>0) avgLum = sum/count;
+      }catch(e){ 
+        avgLum = 0.5; 
+      }
+      
+      const threshold = parseFloat(thresholdInput.value);
+      // ИСПРАВЛЕННАЯ ЛОГИКА: если яркость фона ВЫШЕ порога - черный watermark, иначе - белый
+      const targetColor = avgLum > threshold ? 'black' : 'white';
+      
+      const recolored = document.createElement('canvas'); 
+      recolored.width = tileCanvas.width; 
+      recolored.height = tileCanvas.height;
+      const rctx = recolored.getContext('2d'); 
+      setHighQuality(rctx);
+      rctx.drawImage(tileCanvas, 0, 0);
+      rctx.globalCompositeOperation = 'source-in';
+      rctx.fillStyle = targetColor;
+      rctx.fillRect(0,0,recolored.width,recolored.height);
+      rctx.globalCompositeOperation = 'source-over';
+      ctx.drawImage(recolored, centerX - targetW/2, centerY - targetH/2);
       return;
     } else {
-      setAdaptStatus(false, 'Canvas помечен как tainted — источник или вотермарка без CORS');
+      ctx.drawImage(tileCanvas, centerX - targetW/2, centerY - targetH/2);
       return;
     }
-  }catch(e){
-    console.error('assessCanvasTaint error', e);
-    setAdaptStatus(false, 'Ошибка при проверке CORS');
   }
+  
+  // Обычное рисование без тайлинга
+  ctx.save();
+  setHighQuality(ctx);
+  ctx.drawImage(watermarkBitmap, 0, 0, srcW, srcH, 
+                Math.round(centerX - targetW/2), Math.round(centerY - targetH/2), 
+                Math.round(targetW), Math.round(targetH));
+  ctx.restore();
 }
 
-// analyze luminance using preview or offscreen; returns normalized [0..1]
-function analyzeBackgroundLuminance(fit){
-  // sample area centered under watermark
-  const threshold = parseFloat(thresholdInput.value);
+// ИСПРАВЛЕННАЯ ФУНКЦИЯ: Перекрашивание водяного знака на основе яркости фона
+function recolorPerPixelFull(w, h){
+  if(!colorAdaptAvailable) return null;
+  
   try{
-    // prefer scaled preview if readable
-    if(isCanvasReadable(previewCtx)){
-      const cx = Math.round(previewCanvas.width/2);
-      const cy = Math.round(previewCanvas.height/2);
-      const sampleW = Math.max(6, Math.round((fit.w * previewScale) * 0.3));
-      const sampleH = Math.max(6, Math.round((fit.h * previewScale) * 0.3));
-      const sx = Math.max(0, Math.round(cx - sampleW/2));
-      const sy = Math.max(0, Math.round(cy - sampleH/2));
-      const w = Math.min(sampleW, previewCanvas.width - sx);
-      const h = Math.min(sampleH, previewCanvas.height - sy);
-      if(w<=0 || h<=0) return 0.5;
-      const data = previewCtx.getImageData(sx, sy, w, h).data;
-      let sum=0,count=0;
-      for(let i=0;i<data.length;i+=4){ const a=data[i+3]; if(a<10) continue; const r=data[i], g=data[i+1], b=data[i+2]; sum += (0.2126*r + 0.7152*g + 0.0722*b); count++; }
-      if(count===0) return 0.5;
-      return (sum/count)/255;
+    const tempWm = document.createElement('canvas'); 
+    tempWm.width = Math.max(1,w); 
+    tempWm.height = Math.max(1,h);
+    const tw = tempWm.getContext('2d'); 
+    setHighQuality(tw);
+    
+    // Рисуем водяной знак во временный canvas
+    if (watermarkBitmap) {
+      tw.drawImage(watermarkBitmap, 0, 0, watermarkBitmap.width, watermarkBitmap.height, 
+                   0, 0, tempWm.width, tempWm.height);
+    } else if (watermarkImgElement) {
+      tw.drawImage(watermarkImgElement, 0, 0, watermarkImgElement.naturalWidth, watermarkImgElement.naturalHeight, 
+                   0, 0, tempWm.width, tempWm.height);
     }
-    // fallback to offscreen
-    if(isCanvasReadable(offscreenCtx)){
-      const sx = Math.max(0, Math.round(srcWidth/2 - fit.w*0.15));
-      const sy = Math.max(0, Math.round(srcHeight/2 - fit.h*0.15));
-      const sw = Math.max(4, Math.min(fit.w, Math.round(fit.w*0.3)));
-      const sh = Math.max(4, Math.min(fit.h, Math.round(fit.h*0.3)));
-      const data = offscreenCtx.getImageData(sx, sy, sw, sh).data;
-      let sum=0,count=0;
-      for(let i=0;i<data.length;i+=4){ const a=data[i+3]; if(a<10) continue; const r=data[i], g=data[i+1], b=data[i+2]; sum += (0.2126*r + 0.7152*g + 0.0722*b); count++; }
-      if(count===0) return 0.5;
-      return (sum/count)/255;
-    }
-    // if neither readable
-    return 0.5;
-  }catch(e){
-    console.warn('analyzeBackgroundLuminance failed, canvas tainted?', e);
-    return 0.5;
-  }
-}
+    
+    const wmData = tw.getImageData(0,0,tempWm.width,tempWm.height);
 
-// recolor watermark using source-in composite
-function recolorWatermarkToColor(img, color, drawW, drawH){
-  const t = document.createElement('canvas');
-  t.width = Math.max(1, Math.round(drawW)); t.height = Math.max(1, Math.round(drawH));
-  const tctx = t.getContext('2d');
-  tctx.clearRect(0,0,t.width,t.height);
-  tctx.drawImage(img, 0, 0, t.width, t.height);
-  tctx.globalCompositeOperation = 'source-in';
-  tctx.fillStyle = color;
-  tctx.fillRect(0,0,t.width,t.height);
-  tctx.globalCompositeOperation = 'source-over';
-  return t;
-}
-
-function renderPreview(){
-  clearPreview();
-  if(!srcWidth || !srcHeight) return;
-  // draw source scaled
-  if(srcImage) previewCtx.drawImage(srcImage, 0, 0, srcWidth*previewScale, srcHeight*previewScale);
-  else if(srcVideo){ try{ previewCtx.drawImage(srcVideo,0,0,srcWidth*previewScale,srcHeight*previewScale); } catch(e){} }
-
-  if(!watermarkImg) return;
-  const fit = computeWatermarkFit(); if(!fit) return;
-  const displayW = fit.w * previewScale; const displayH = fit.h * previewScale;
-
-  // decide color
-  let avgLum = 0.5;
-  if(colorAdaptAvailable){
-    avgLum = analyzeBackgroundLuminance(fit);
-  } else {
-    avgLum = 0.5; // neutral -> will be considered dark if threshold>0.5
-  }
-  const threshold = parseFloat(thresholdInput.value);
-  thresholdLabel.textContent = threshold.toFixed(2);
-  const targetColor = (colorAdaptAvailable && avgLum > threshold) ? '#000000' : '#ffffff';
-
-  let recolored = null;
-  try{ recolored = recolorWatermarkToColor(watermarkImg, targetColor, displayW, displayH); } catch(e){ recolored = null; }
-
-  const cx = previewCanvas.width/2; const cy = previewCanvas.height/2;
-  previewCtx.save(); previewCtx.globalAlpha = wmState.opacity; previewCtx.globalCompositeOperation = 'source-over'; previewCtx.translate(cx, cy); previewCtx.rotate(wmState.rotation * Math.PI/180);
-  if(recolored) previewCtx.drawImage(recolored, -displayW/2, -displayH/2, displayW, displayH); else previewCtx.drawImage(watermarkImg, -displayW/2, -displayH/2, displayW, displayH);
-  previewCtx.restore();
-
-  posInfo.textContent = `avg lum: ${avgLum.toFixed(2)} → color ${targetColor} — size ${fit.w}×${fit.h} — adapt:${colorAdaptAvailable ? 'YES' : 'NO'}`;
-}
-
-function compositeToOffscreen(customDrawCallback){
-  if(!srcWidth || !srcHeight) throw new Error('No source loaded');
-  offscreenCtx.clearRect(0,0,offscreenCanvas.width, offscreenCanvas.height);
-  if(srcImage) offscreenCtx.drawImage(srcImage, 0, 0, srcWidth, srcHeight);
-  else if(srcVideo){ try{ offscreenCtx.drawImage(srcVideo,0,0,srcWidth,srcHeight); } catch(e){} }
-
-  if(watermarkImg){
-    const fit = computeWatermarkFit(); const w = fit.w; const h = fit.h;
-    let avgLum = 0.5;
-    if(colorAdaptAvailable){
-      try{
-        const sx = Math.max(0, Math.round(srcWidth/2 - w*0.15));
-        const sy = Math.max(0, Math.round(srcHeight/2 - h*0.15));
-        const sw = Math.max(4, Math.min(w, Math.round(w*0.3)));
-        const sh = Math.max(4, Math.min(h, Math.round(h*0.3)));
-        const data = offscreenCtx.getImageData(sx, sy, sw, sh).data;
-        let sum=0,count=0; for(let i=0;i<data.length;i+=4){ const a=data[i+3]; if(a<10) continue; const r=data[i], g=data[i+1], b=data[i+2]; sum += (0.2126*r + 0.7152*g + 0.0722*b); count++; }
-        if(count>0) avgLum = (sum/count)/255; else avgLum = 0.5;
-      }catch(e){ avgLum = analyzeBackgroundLuminance({w,h}); }
+    const bgCanvas = document.createElement('canvas'); 
+    bgCanvas.width = tempWm.width; 
+    bgCanvas.height = tempWm.height;
+    const bgCtx = bgCanvas.getContext('2d'); 
+    setHighQuality(bgCtx);
+    
+    // Пытаемся получить данные фона
+    if(canvasReadable(previewCtx)){
+      const centerX = Math.round(previewCanvas.width/2), centerY = Math.round(previewCanvas.height/2);
+      const sx = Math.max(0, Math.round(centerX - tempWm.width/2));
+      const sy = Math.max(0, Math.round(centerY - tempWm.height/2));
+      try{ 
+        bgCtx.drawImage(previewCtx.canvas, sx, sy, Math.max(1,tempWm.width), Math.max(1,tempWm.height), 
+                        0, 0, tempWm.width, tempWm.height); 
+      }catch(e){ 
+        bgCtx.drawImage(previewCtx.canvas, 0, 0, tempWm.width, tempWm.height); 
+      }
     } else {
-      avgLum = 0.5;
+      try{ 
+        bgCtx.drawImage(offscreenCtx.canvas, 
+                        Math.max(0, Math.round(srcWidth/2 - w/2)), 
+                        Math.max(0, Math.round(srcHeight/2 - h/2)), 
+                        Math.max(1,w), Math.max(1,h), 
+                        0, 0, tempWm.width, tempWm.height); 
+      }catch(e){ /* fallback blank */ }
     }
+    
+    const bgData = bgCtx.getImageData(0,0,tempWm.width,tempWm.height);
+
+    const out = document.createElement('canvas'); 
+    out.width = tempWm.width; 
+    out.height = tempWm.height;
+    const octx = out.getContext('2d'); 
+    setHighQuality(octx);
+    const outData = octx.createImageData(out.width, out.height);
 
     const threshold = parseFloat(thresholdInput.value);
-    const targetColor = (colorAdaptAvailable && avgLum > threshold) ? '#000000' : '#ffffff';
-
-    let recolored;
-    try{ recolored = recolorWatermarkToColor(watermarkImg, targetColor, w, h); } catch(e){ recolored = null; }
-
-    offscreenCtx.save(); offscreenCtx.globalAlpha = wmState.opacity; offscreenCtx.globalCompositeOperation = 'source-over'; offscreenCtx.translate(srcWidth/2, srcHeight/2); offscreenCtx.rotate(wmState.rotation * Math.PI/180);
-    if(recolored) offscreenCtx.drawImage(recolored, -w/2, -h/2, w, h); else offscreenCtx.drawImage(watermarkImg, -w/2, -h/2, w, h);
-    offscreenCtx.restore();
-  }
-  if(typeof customDrawCallback === 'function') customDrawCallback(offscreenCtx);
-}
-
-// EXPORTS
-exportImageBtn.addEventListener('click', ()=>{
-  try{
-    if(!srcWidth) return alert('No source loaded');
-    compositeToOffscreen();
-    offscreenCanvas.toBlob(blob=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='watermarked.png'; a.click(); }, 'image/png');
-  }catch(e){ alert('Export failed: '+e.message); console.error(e); }
-});
-
-exportJpegBtn.addEventListener('click', ()=>{
-  try{
-    if(!srcWidth) return alert('No source loaded');
-    compositeToOffscreen();
-    offscreenCanvas.toBlob(blob=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='watermarked.jpg'; a.click(); }, 'image/jpeg', 0.92);
-  }catch(e){ alert('Export failed: '+e.message); console.error(e); }
-});
-
-exportVideoBtn.addEventListener('click', ()=>{
-  if(!srcWidth) return alert('No source loaded');
-  exportVideo({duration:3000, fps:30}).then(url=>{ const a = document.createElement('a'); a.href = url; a.download = 'watermarked.webm'; a.click(); }).catch(e=>{ alert('Video export failed: '+e.message); console.error(e); });
-});
-
-async function exportVideo({duration=3000,fps=30} = {}){
-  return new Promise((resolve,reject)=>{
-    const tempCanvas = document.createElement('canvas'); tempCanvas.width = srcWidth; tempCanvas.height = srcHeight; const tctx = tempCanvas.getContext('2d');
-    const totalFrames = Math.round(duration/1000 * fps); let currentFrame = 0; const baseRotation = wmState.rotation;
-    const fit = computeWatermarkFit(); const startScale = 0.995; const endScale = 1.005;
-    const stream = tempCanvas.captureStream(fps); const recordedChunks = []; let recorder;
-    try{ recorder = new MediaRecorder(stream, {mimeType: 'video/webm; codecs=vp9'}); }catch(err){ try{ recorder = new MediaRecorder(stream, {mimeType: 'video/webm; codecs=vp8'}); }catch(e){ return reject(err); }}
-    recorder.ondataavailable = ev=>{ if(ev.data && ev.data.size) recordedChunks.push(ev.data); };
-    recorder.onstop = ()=>{ const blob = new Blob(recordedChunks, {type:'video/webm'}); const url = URL.createObjectURL(blob); resolve(url); };
-    recorder.start();
-
-    function drawFrame(){
-      const t = currentFrame/Math.max(1,totalFrames-1);
-      const ease = (1 - Math.cos(Math.PI * t)) / 2;
-      if(srcImage) tctx.drawImage(srcImage,0,0,srcWidth,srcHeight);
-      else if(srcVideo){ try{ tctx.drawImage(srcVideo,0,0,srcWidth,srcHeight); }catch(e){} }
-      let avgLum = 0.5;
-      if(colorAdaptAvailable){
-        try{
-          const sx = Math.max(0, Math.round(srcWidth/2 - fit.w*0.15));
-          const sy = Math.max(0, Math.round(srcHeight/2 - fit.h*0.15));
-          const sw = Math.max(4, Math.min(fit.w, Math.round(fit.w*0.3)));
-          const sh = Math.max(4, Math.min(fit.h, Math.round(fit.h*0.3)));
-          const data = tctx.getImageData(sx, sy, sw, sh).data; let sum=0,count=0; for(let i=0;i<data.length;i+=4){ const a=data[i+3]; if(a<10) continue; const r=data[i], g=data[i+1], b=data[i+2]; sum += (0.2126*r + 0.7152*g + 0.0722*b); count++; } if(count>0) avgLum = (sum/count)/255;
-        }catch(e){ avgLum = 0.5; }
+    
+    // ИСПРАВЛЕННАЯ ЛОГИКА ПЕРЕКРАШИВАНИЯ
+    for(let i=0;i<wmData.data.length;i+=4){
+      const a = wmData.data[i+3];
+      if(a < 10){ 
+        outData.data[i+3] = 0; 
+        continue; 
       }
-      const threshold = parseFloat(thresholdInput.value);
-      const targetColor = (colorAdaptAvailable && avgLum > threshold) ? '#000000' : '#ffffff';
-      const scale = startScale + (endScale-startScale)*ease; const w = Math.round(fit.w * scale); const h = Math.round(fit.h * scale);
-      let recolored = null;
-      try{ recolored = recolorWatermarkToColor(watermarkImg, targetColor, w, h); }catch(e){ recolored = null; }
-      tctx.save(); tctx.globalAlpha = wmState.opacity; tctx.globalCompositeOperation = 'source-over'; tctx.translate(srcWidth/2, srcHeight/2); tctx.rotate(baseRotation * Math.PI/180);
-      if(recolored) tctx.drawImage(recolored, -w/2, -h/2, w, h); else tctx.drawImage(watermarkImg, -w/2, -h/2, w, h);
-      tctx.restore();
-
-      currentFrame++;
-      if(currentFrame <= totalFrames) requestAnimationFrame(drawFrame);
-      else setTimeout(()=>{ recorder.stop(); }, 200);
+      
+      const br = bgData.data[i], bg = bgData.data[i+1], bb = bgData.data[i+2];
+      // Используем стандартную формулу для относительной яркости
+      const lum = (0.299*br + 0.587*bg + 0.114*bb) / 255;
+      
+      // ИСПРАВЛЕННАЯ ЛОГИКА: если яркость фона ВЫШЕ порога - черный watermark, иначе - белый
+      if(lum > threshold){
+        outData.data[i] = 0;     // R
+        outData.data[i+1] = 0;   // G  
+        outData.data[i+2] = 0;   // B
+        outData.data[i+3] = a;   // A
+      } else {
+        outData.data[i] = 255;   // R
+        outData.data[i+1] = 255; // G
+        outData.data[i+2] = 255; // B
+        outData.data[i+3] = a;   // A
+      }
     }
-    drawFrame();
-  });
+    
+    octx.putImageData(outData, 0, 0);
+    return out;
+  }catch(e){
+    console.warn('recolorPerPixelFull failed', e);
+    return null;
+  }
 }
 
-// UI events
-thresholdInput.addEventListener('input', ()=>{ thresholdLabel.textContent = parseFloat(thresholdInput.value).toFixed(2); renderPreview(); });
+// Проверка доступности чтения canvas
+function canvasReadable(ctx){
+  try{ 
+    ctx.getImageData(0,0,1,1); 
+    return true; 
+  }catch(e){ 
+    return false; 
+  }
+}
 
-// reset
-resetBtn.addEventListener('click', ()=>{
-  srcImage=null; srcVideo=null; watermarkImg=null; watermarkSelection=null; srcWidth=0; srcHeight=0;
-  offscreenCanvas.width=offscreenCanvas.height=1; previewCanvas.width=previewCanvas.height=1;
-  imageInfo.textContent='No image loaded'; posInfo.textContent='-'; document.querySelectorAll('.wm-thumb').forEach(t=>t.classList.remove('selected'));
-  setAdaptStatus(false, 'Статус сброшен');
+// Функция рендера превью
+function renderPreview(){
+  if (!previewCtx) return;
+  
+  previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  
+  // Рисуем исходное изображение/видео
+  if (srcImage && srcImage.complete) {
+    try {
+      previewCtx.drawImage(srcImage, 0, 0, srcWidth * previewScale, srcHeight * previewScale);
+    } catch(e) {
+      console.warn('Ошибка рисования изображения:', e);
+    }
+  } else if (srcVideo && srcVideo.readyState >= 2) {
+    try {
+      previewCtx.drawImage(srcVideo, 0, 0, srcWidth * previewScale, srcHeight * previewScale);
+    } catch(e) {
+      console.warn('Ошибка рисования видео:', e);
+    }
+  }
+
+  // Рисуем водяной знак если есть
+  if ((watermarkBitmap || watermarkImgElement) && srcWidth && srcHeight) {
+    const fit = computeWatermarkFitFull();
+    if (fit) {
+      const displayW = Math.round(fit.w * previewScale);
+      const displayH = Math.round(fit.h * previewScale);
+      
+      let wmToDraw = null;
+      if (colorAdaptAvailable) {
+        try {
+          wmToDraw = recolorPerPixelFull(displayW, displayH);
+        } catch(e) {
+          console.warn('Ошибка перекрашивания:', e);
+          wmToDraw = null;
+        }
+      }
+      
+      if (!wmToDraw) {
+        drawWatermarkHighQuality(previewCtx, previewCanvas.width/2, previewCanvas.height/2, 
+                                displayW, displayH, false);
+      } else {
+        try {
+          previewCtx.drawImage(wmToDraw, 
+                              previewCanvas.width/2 - wmToDraw.width/2, 
+                              previewCanvas.height/2 - wmToDraw.height/2);
+        } catch(e) {
+          console.warn('Ошибка рисования перекрашенного watermark:', e);
+        }
+      }
+    }
+  }
+
+  posInfo.textContent = `preview: adapt=${colorAdaptAvailable ? 'YES':'NO'} wm=${watermarkBitmap || watermarkImgElement ? 'loaded' : 'none'}`;
+}
+
+// Композиция для экспорта
+function compositeOffscreen(){
+  if(!srcWidth || !srcHeight) throw new Error('No source loaded');
+  offscreenCtx.clearRect(0,0,offscreenCanvas.width,offscreenCanvas.height);
+  setHighQuality(offscreenCtx);
+  if(srcImage) offscreenCtx.drawImage(srcImage, 0, 0, srcWidth, srcHeight);
+  else if(srcVideo) try{ offscreenCtx.drawImage(srcVideo,0,0,srcWidth,srcHeight); }catch(e){}
+
+  if(watermarkBitmap || watermarkImgElement){
+    const fit = computeWatermarkFitFull();
+    const w = fit.w, h = fit.h;
+    let recolored = null;
+    if(colorAdaptAvailable){
+      recolored = recolorPerPixelFull(w, h);
+    }
+    if(recolored){
+      offscreenCtx.drawImage(recolored, Math.round(srcWidth/2 - w/2), Math.round(srcHeight/2 - h/2));
+    } else {
+      drawWatermarkHighQuality(offscreenCtx, Math.round(srcWidth/2), Math.round(srcHeight/2), w, h, false);
+    }
+  }
+}
+
+// Экспорт
+exportPng.addEventListener('click', ()=>{
+  try{
+    compositeOffscreen();
+    offscreenCanvas.toBlob(blob=>{ 
+      const a = document.createElement('a'); 
+      a.href = URL.createObjectURL(blob); 
+      a.download = 'out.png'; 
+      a.click(); 
+    }, 'image/png');
+  }catch(e){ 
+    alert('Export fail: '+e.message); 
+    console.error(e); 
+  }
 });
 
-// startup
-createWatermarkThumbnails();
-updateInfo();
-setAdaptStatus(false, 'Ожидание источника / вотермарки');
+exportJpg.addEventListener('click', ()=>{
+  try{
+    compositeOffscreen();
+    offscreenCanvas.toBlob(blob=>{ 
+      const a = document.createElement('a'); 
+      a.href = URL.createObjectURL(blob); 
+      a.download = 'out.jpg'; 
+      a.click(); 
+    }, 'image/jpeg', 0.92);
+  }catch(e){ 
+    alert('Export fail: '+e.message); 
+    console.error(e); 
+  }
+});
 
-// animation loop for video sources (to keep preview updated)
-function tick(){
-  if(srcVideo){ renderPreview(); drawSourceToOffscreen(); }
-  requestAnimationFrame(tick);
+exportWebm.addEventListener('click', async ()=>{
+  if(!srcWidth) return alert('No source');
+  try{
+    const duration = 3000, fps = 25;
+    const frames = Math.round(duration/1000 * fps);
+    const temp = document.createElement('canvas'); 
+    temp.width = srcWidth; 
+    temp.height = srcHeight;
+    const tctx = temp.getContext('2d'); 
+    setHighQuality(tctx);
+    const stream = temp.captureStream(fps); 
+    const recChunks = [];
+    let rec;
+    try{ 
+      rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp9'}); 
+    }catch(e){ 
+      rec = new MediaRecorder(stream, {mimeType:'video/webm;codecs=vp8'}); 
+    }
+    rec.ondataavailable = ev=>{ 
+      if(ev.data && ev.data.size) recChunks.push(ev.data); 
+    };
+    rec.onstop = ()=>{ 
+      const blob = new Blob(recChunks, {type:'video/webm'}); 
+      const url = URL.createObjectURL(blob); 
+      const a = document.createElement('a'); 
+      a.href = url; 
+      a.download = 'out.webm'; 
+      a.click(); 
+    };
+    rec.start();
+    for(let i=0;i<frames;i++){
+      try{ 
+        if(srcImage) tctx.drawImage(srcImage,0,0,srcWidth,srcHeight); 
+        else if(srcVideo) tctx.drawImage(srcVideo,0,0,srcWidth,srcHeight); 
+      }catch(e){}
+      const fit = computeWatermarkFitFull();
+      if(fit) drawWatermarkHighQuality(tctx, srcWidth/2, srcHeight/2, fit.w, fit.h, false);
+      await new Promise(r=>setTimeout(r, 1000/fps));
+    }
+    setTimeout(()=>rec.stop(), 200);
+  }catch(e){ 
+    alert('Video export failed: '+e.message); 
+    console.error(e); 
+  }
+});
+
+// Сброс
+resetBtn.addEventListener('click', ()=>{
+  srcImage = null; 
+  srcVideo = null; 
+  watermarkBitmap = null; 
+  watermarkImgElement = null; 
+  srcWidth=0; 
+  srcHeight=0;
+  offscreenCanvas.width = offscreenCanvas.height = 1; 
+  previewCanvas.width = previewCanvas.height = 1;
+  imageInfo.textContent = 'No source'; 
+  posInfo.textContent = '-'; 
+  adaptFlag.textContent = 'UNKNOWN'; 
+  playOverlay.style.display = 'none';
+  stopLoop();
+});
+
+// Цикл анимации
+function startLoop(){
+  if(loopRunning) return;
+  loopRunning = true;
+  function frame(){
+    try{ 
+      renderPreview(); 
+    }catch(e){}
+    rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
 }
-tick();
+
+// Остановка цикла анимации
+function stopLoop(){
+  loopRunning = false;
+  if(rafId){ 
+    cancelAnimationFrame(rafId); 
+    rafId = null; 
+  }
+}
+
+// Обработчики событий и инициализация
+thresholdInput.addEventListener('input', ()=>{ 
+  thresholdLabel.textContent = parseFloat(thresholdInput.value).toFixed(2); 
+  assessCanvasTaint();
+  renderPreview(); 
+});
+
+// Инициализация при загрузке
+window.addEventListener('load', () => {
+  assessCanvasTaint();
+  createThumbnails();
+  setHighQuality(previewCtx);
+  setHighQuality(offscreenCtx);
+  imageInfo.textContent = 'No source';
+  offscreenCanvas.width = offscreenCanvas.height = 1;
+});
+
 </script>
 </body>
 </html>
