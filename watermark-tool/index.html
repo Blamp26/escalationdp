@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Client-Side Dual Watermark Tool</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 1rem; background:#f4f4f9; }
+  h1 { text-align:center; }
+  .drop-zone {
+    border: 4px dashed #666;
+    border-radius: 12px;
+    padding: 40px;
+    text-align: center;
+    background: white;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .drop-zone.dragover { border-color: #007bff; background:#e7f0ff; }
+  .controls { margin: 20px 0; padding: 15px; background:white; border-radius:8px; }
+  .watermark-settings { display:flex; gap:20px; flex-wrap:wrap; margin:10px 0; }
+  .preview { margin-top:20px; text-align:center; }
+  video, img { max-width:100%; border-radius:8px; box-shadow:0 4px 20px rgba(0,0,0,0.1); }
+  button { padding:12px 24px; font-size:1rem; margin:10px; cursor:pointer; }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+
+<h1>Browser Dual Watermark Tool</h1>
+<div class="drop-zone" id="dropZone">
+  Drop image or video here<br>or click to select
+  <input type="file" id="fileInput" accept="image/*,video/mp4,video/webm,video/quicktime" style="display:none">
+</div>
+
+<div class="controls hidden" id="controls">
+  <h3>Watermark Settings</h3>
+  
+  <div class="watermark-settings">
+    <div>
+      <label>Watermark 1 Opacity: <span id="op1Val">70</span>%</label><br>
+      <input type="range" min="0" max="100" value="70" id="opacity1">
+      <br><label>Scale: <span id="scale1Val">20</span>%</label><br>
+      <input type="range" min="5" max="50" value="20" id="scale1">
+      <br><label>Position:</label>
+      <select id="pos1">
+        <option value="top-left">Top Left</option>
+        <option value="top-right">Top Right</option>
+        <option value="bottom-left">Bottom Left</option>
+        <option value="bottom-right" selected>Bottom Right</option>
+        <option value="center">Center</option>
+      </select>
+    </div>
+
+    <div>
+      <label>Watermark 2 Opacity: <span id="op2Val">50</span>%</label><br>
+      <input type="range" min="0" max="100" value="50" id="opacity2">
+      <br><label>Scale: <span id="scale2Val">15</span>%</label><br>
+      <input type="range" min="5" max="50" value="15" id="scale2">
+      <br><label>Position:</label>
+      <select id="pos2">
+        <option value="top-left" selected>Top Left</option>
+        <option value="top-right">Top Right</option>
+        <option value="bottom-left">Bottom Left</option>
+        <option value="bottom-right">Bottom Right</option>
+        <option value="center">Center</option>
+      </select>
+    </div>
+  </div>
+
+  <button id="processBtn">Apply Watermarks & Download</button>
+  <span id="progress" style="margin-left:20px;"></span>
+</div>
+
+<div class="preview hidden" id="preview"></div>
+
+<script>
+// ==================== CONFIG ====================
+const WM1_SRC = 'watermarks/watermark1.png';  // ← put your files here
+const WM2_SRC = 'watermarks/watermark2.png';
+
+let fileType, originalFile;
+let wm1Img, wm2Img;
+
+// Load watermarks once
+Promise.all([
+  loadImage(WM1_SRC).then(img => wm1Img = img),
+  loadImage(WM2_SRC).then(img => wm2Img = img)
+]).catch(err => alert('Could not load one or both watermarks. Check the /watermarks/ folder.'));
+
+// ==================== UI ====================
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const controls = document.getElementById('controls');
+const previewDiv = document.getElementById('preview');
+const processBtn = document.getElementById('processBtn');
+const progressSpan = document.getElementById('progress');
+
+['dragover', 'dragenter'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+['dragleave', 'dragend'].forEach(e => dropZone.addEventListener(e, () => dropZone.classList.remove('dragover')));
+dropZone.addEventListener('drop', ev => {
+  ev.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (ev.dataTransfer.files.length) handleFile(ev.dataTransfer.files[0]);
+});
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => e.target.files.length && handleFile(e.target.files[0]));
+
+function handleFile(file) {
+  originalFile = file;
+  const url = URL.createObjectURL(file);
+  fileType = file.type.startsWith('image/') ? 'image' : 'video';
+
+  previewDiv.innerHTML = '';
+  previewDiv.classList.remove('hidden');
+  controls.classList.remove('hidden');
+
+  if (fileType === 'image') {
+    const img = document.createElement('img');
+    img.src = url;
+    img.onload = () => previewImageWithWatermarks(img);
+    previewDiv.appendChild(img);
+  } else {
+    const video = document.createElement('video');
+    video.src = url;
+    video.controls = true;
+    video.muted = true;
+    video.autoplay = false;
+    previewDiv.appendChild(video);
+  }
+}
+
+// Live preview for images
+function previewImageWithWatermarks(originalImg) {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = originalImg.naturalWidth;
+  canvas.height = originalImg.naturalHeight;
+
+  function draw() {
+    ctx.drawImage(originalImg, 0, 0);
+    drawWatermark(ctx, wm1Img, +document.getElementById('opacity1').value/100,
+                    +document.getElementById('scale1').value/100, document.getElementById('pos1').value, canvas);
+    drawWatermark(ctx, wm2Img, +document.getElementById('opacity2').value/100,
+                    +document.getElementById('scale2').value/100, document.getElementById('pos2').value, canvas);
+    previewDiv.querySelector('img').src = canvas.toDataURL('image/jpeg', 0.95);
+  }
+
+  ['opacity1','opacity2','scale1','scale2','pos1','pos2'].forEach(id => {
+    document.getElementById(id).addEventListener('input', draw);
+  });
+  draw();
+}
+
+// ==================== PROCESSING ====================
+processBtn.onclick = async () => {
+  progressSpan.textContent = 'Processing...';
+  if (fileType === 'image') {
+    await processImage();
+  } else {
+    await processVideoModern(); // WebCodecs path (fast)
+    // fallback: processVideoCanvas() if WebCodecs not available
+  }
+  progressSpan.textContent = 'Done!';
+};
+
+async function processImage() {
+  const img = await loadImage(URL.createObjectURL(originalFile));
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  drawWatermark(ctx, wm1Img, +document.getElementById('opacity1').value/100,
+                +document.getElementById('scale1').value/100, document.getElementById('pos1').value, canvas);
+  drawWatermark(ctx, wm2Img, +document.getElementById('opacity2').value/100,
+                +document.getElementById('scale2').value/100, document.getElementById('pos2').value, canvas);
+
+  canvas.toBlob(blob => downloadBlob(blob, 'watermarked.jpg'), 'image/jpeg', 0.95);
+}
+
+// Modern fast video path (Chrome 94+, Edge, Safari 17+)
+async function processVideoModern() {
+  if (!('VideoEncoder' in window)) {
+    alert('Your browser does not support fast video processing. Falling back to slower canvas method...');
+    return processVideoCanvas();
+  }
+
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(originalFile);
+  await video.play(); video.pause();
+
+  const stream = await new Promise(resolve => {
+    video.addEventListener('loadedmetadata', () => resolve(video.captureStream()));
+  });
+
+  const encoder = new VideoEncoder({
+    output: (chunk, meta) => recorder.encoder.encode(chunk),
+    error: e => console.error(e)
+  });
+
+  const config = {
+    codec: 'avc1.42001E', // widely supported
+    width: video.videoWidth,
+    height: video.videoHeight,
+    bitrate: 10_000_000,
+    framerate: 30
+  };
+
+  if (!VideoEncoder.isConfigSupported(config)) {
+    alert('Codec not supported, falling back...');
+    return processVideoCanvas();
+  }
+  await VideoEncoder.isConfigSupported(config);
+  encoder.configure(config);
+
+  const recorder = new MediaRecorder(stream, { mimeType: 'video/mp4' });
+  const chunks = [];
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => {
+    const blob = new Blob(chunks, { type: 'video/mp4' });
+    downloadBlob(blob, 'watermarked.mp4');
+  };
+
+  // Overlay watermarks on every frame
+  const processor = new MediaStreamTrackProcessor(stream.getVideoTracks()[0]);
+  const reader = processor.readable.getReader();
+
+  const canvas = new OffscreenCanvas(video.videoWidth, video.videoHeight);
+  const ctx = canvas.getContext('2d');
+
+  async function pump() {
+    const { done, value } = await reader.read();
+    if (done) {
+      encoder.flush();
+      recorder.stop();
+      return;
+    }
+
+    ctx.drawImage(value, 0, 0);
+    drawWatermark(ctx, wm1Img, +document.getElementById('opacity1').value/100,
+                  +document.getElementById('scale1').value/100, document.getElementById('pos1').value, canvas);
+    drawWatermark(ctx, wm2Img, +document.getElementById('opacity2').value/100,
+                  +document.getElementById('scale2').value/100, document.getElementById('pos2').value, canvas);
+
+    const newFrame = new VideoFrame(canvas, { timestamp: value.timestamp });
+    encoder.encode(newFrame);
+    newFrame.close();
+    value.close();
+
+    progressSpan.textContent = `Processing frame ${value.timestamp/1e6 | 0}s...`;
+    pump();
+  }
+
+  recorder.start();
+  pump();
+}
+
+// Fallback canvas-based video processing (works everywhere, slower)
+async function processVideoCanvas() {
+  const video = document.createElement('video');
+  video.src = URL.createObjectURL(originalFile);
+  await new Promise(r => video.onloadedmetadata = r);
+  video.currentTime = 0;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+
+  const recorder = new MediaRecorder(canvas.captureStream(30), { mimeType: 'video/webm;codecs=vp9' });
+  const chunks = [];
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = () => downloadBlob(new Blob(chunks, {type: 'video/webm'}), 'watermarked.webm');
+
+  let frameCount = 0;
+  const fps = 30;
+  const duration = video.duration;
+
+  recorder.start();
+
+  function drawFrame() {
+    if (video.ended || video.currentTime >= duration) {
+      recorder.stop();
+      return;
+    }
+    ctx.drawImage(video, 0, 0);
+    drawWatermark(ctx, wm1Img, +document.getElementById('opacity1').value/100,
+                  +document.getElementById('scale1').value/100, document.getElementById('pos1').value, canvas);
+    drawWatermark(ctx, wm2Img, +document.getElementById('opacity2').value/100,
+                  +document.getElementById('scale2').value/100, document.getElementById('pos2').value, canvas);
+
+    frameCount++;
+    progressSpan.textContent = `Frame ${frameCount} / ~${(duration*fps)|0}`;
+
+    video.currentTime += 1/fps;
+  }
+
+  video.addEventListener('seeked', drawFrame);
+  drawFrame();
+}
+
+// ==================== UTILS ====================
+function loadImage(src) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = rej;
+    img.src = src;
+  });
+}
+
+function drawWatermark(ctx, wmImg, opacity, scale, position, canvas) {
+  if (!wmImg) return;
+  const padding = 30;
+  const wmW = canvas.width * scale;
+  const wmH = wmImg.height / wmImg.width * wmW;
+
+  let x, y;
+  switch (position) {
+    case 'top-left':     x = padding;          y = padding; break;
+    case 'top-right':    x = canvas.width - wmW - padding; y = padding; break;
+    case 'bottom-left':  x = padding;          y = canvas.height - wmH - padding; break;
+    case 'bottom-right': x = canvas.width - wmW - padding; y = canvas.height - wmH - padding; break;
+    case 'center':       x = canvas.width/2 - wmW/2; y = canvas.height/2 - wmH/2; break;
+  }
+
+  ctx.globalAlpha = opacity;
+  ctx.drawImage(wmImg, x, y, wmW, wmH);
+  ctx.globalAlpha = 1;
+}
+
+function downloadBlob(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+}
+
+// Live update of range values
+document.querySelectorAll('input[type=range]').forEach(r => {
+  const valSpan = document.getElementById(r.id + 'Val') || document.getElementById(r.id.replace('2','1') + 'Val');
+  if (valSpan) {
+    r.addEventListener('input', () => valSpan.textContent = r.value);
+  }
+});
+</script>
+</body>
+</html>
