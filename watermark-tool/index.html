@@ -71,7 +71,6 @@
 const WM1_SRC = 'watermarks/watermark1.png';
 const WM2_SRC = 'watermarks/watermark2.png';
 
-// Жестко заданные значения (поскольку элементы управления удалены)
 const DEFAULT_SIZE_PCT = 0.7; // 70%
 const DEFAULT_OPACITY = 0.8;  // 80%
 
@@ -88,11 +87,11 @@ const progress = document.getElementById('progress');
 
 // Элементы предпросмотра видео
 let previewVideoElement = null;
-let videoPreviewActive = false;
+// Флаг для остановки цикла предпросмотра (Теперь используется только для экспорта!)
+let videoPreviewActive = false; 
 let previewCanvas = document.createElement('canvas');
 const previewCtx = previewCanvas.getContext('2d');
 let currentDownloadName = '';
-
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 
@@ -105,7 +104,7 @@ function loadImage(src) {
   });
 }
 
-// Загрузка водяных знаков с улучшенной обработкой ошибок
+// Загрузка водяных знаков с обработкой ошибок
 Promise.all([loadImage(WM1_SRC), loadImage(WM2_SRC)])
   .then(imgs => { wm1 = imgs[0]; wm2 = imgs[1]; })
   .catch(err => {
@@ -119,7 +118,6 @@ Promise.all([loadImage(WM1_SRC), loadImage(WM2_SRC)])
 
 // ==================== ОБРАБОТЧИКИ UI ====================
 
-// Обработка выбора файла
 dropZone.onclick = () => fileInput.click();
 fileInput.onchange = e => e.target.files[0] && handleFile(e.target.files[0]);
 dropZone.ondragover = dropZone.ondragenter = e => { e.preventDefault(); dropZone.classList.add('dragover'); };
@@ -134,63 +132,69 @@ function handleFile(file) {
   isImage = file.type.startsWith('image/');
   const url = URL.createObjectURL(file);
   
-  // Улучшение: Использование оригинального имени файла для экспорта
   const safeName = file.name.split('.').slice(0, -1).join('.') || 'файл';
   currentDownloadName = safeName;
 
-  videoPreviewActive = false; 
-  previewVideoElement = null;
-
+  previewVideoElement = null; // Очистка предыдущего элемента видео
   previewDiv.innerHTML = ''; 
   previewDiv.classList.remove('hidden');
   controls.classList.remove('hidden');
-  progress.textContent = ''; // Очистка прогресса
+  progress.textContent = ''; 
 
   if (isImage) {
     const img = new Image();
     img.onload = () => {
       previewDiv.appendChild(img);
-      renderPreview(); // Первый рендер
+      renderPreview(); // Однократный рендер для изображения
     };
     img.src = url;
   } else {
+    // === MODIFIED: Логика однократного предпросмотра видео ===
     previewVideoElement = document.createElement('video');
     previewVideoElement.src = url;
     previewVideoElement.muted = true;
     previewVideoElement.loop = true;
     previewVideoElement.playsInline = true;
     
+    // Показываем CANVAS, на котором будет наложен водяной знак
     previewDiv.appendChild(previewCanvas);
 
     previewVideoElement.onloadedmetadata = () => {
       previewCanvas.width = previewVideoElement.videoWidth;
       previewCanvas.height = previewVideoElement.videoHeight;
-      previewVideoElement.play();
-      videoPreviewActive = true;
-      startVideoPreviewLoop(); // Запуск цикла предпросмотра
+      
+      // Нам нужен первый кадр. Самый надежный способ - установить 
+      // время 0 и дождаться события 'seeked' или 'canplay'
+      previewVideoElement.currentTime = 0;
+      previewVideoElement.onseeked = () => {
+        // Наложение водяного знака на первый кадр
+        renderVideoFrame(); 
+        // Запуск воспроизведения, но без цикла обновления watermark
+        previewVideoElement.play(); 
+      };
     };
   }
 }
 
-// Обработка выбора водяного знака (динамическое обновление предпросмотра - лучшее UX)
+// Обработка выбора водяного знака
 document.querySelectorAll('.wm-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.wm-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeWm = parseInt(btn.dataset.wm);
     
-    // Динамическое обновление предпросмотра
+    // Однократное обновление предпросмотра при смене
     if (isImage) {
       renderPreview();
+    } else if (previewVideoElement) {
+      // Обновление watermark на текущем кадре видео
+      renderVideoFrame();
     }
-    // Видеообновление происходит автоматически в цикле startVideoPreviewLoop
   };
 });
 
 
-// ==================== РЕНДЕР ИЗОБРАЖЕНИЯ ====================
-
-let offscreenCanvas = document.createElement('canvas'); 
+// ==================== РЕНДЕР КАДРА (ОДНОКРАТНО) ====================
 
 function renderPreview() {
   if (!isImage || !wm1 || !wm2) return;
@@ -215,21 +219,20 @@ function renderPreview() {
   img.src = offscreenCanvas.toDataURL('image/png');
 }
 
-// ==================== РЕНДЕР ВИДЕО ====================
-
-function startVideoPreviewLoop() {
-  if (!videoPreviewActive || !previewVideoElement) return;
+// === MODIFIED: Функция для однократного рендера кадра видео ===
+function renderVideoFrame() {
+  if (!previewVideoElement) return;
 
   previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+  // 1. Рисуем текущий кадр видео
   previewCtx.drawImage(previewVideoElement, 0, 0, previewCanvas.width, previewCanvas.height);
 
+  // 2. Накладываем водяной знак
   const sizePct = DEFAULT_SIZE_PCT;
   const opacity = DEFAULT_OPACITY;
-  const watermark = activeWm === 1 ? wm1 : wm2; // Чтение текущего активного знака
+  const watermark = activeWm === 1 ? wm1 : wm2;
   
   drawCentered(previewCtx, watermark, sizePct, opacity, previewCanvas);
-
-  requestAnimationFrame(startVideoPreviewLoop);
 }
 
 
@@ -254,15 +257,13 @@ mainBtn.onclick = async () => {
   if (isImage) {
     await exportImage();
   } else {
-    videoPreviewActive = false; 
+    // ВРЕМЕННО останавливаем воспроизведение предпросмотра перед экспортом
     if (previewVideoElement) previewVideoElement.pause();
     
     await exportVideo();
 
-    // Возобновление предпросмотра
+    // Возобновление воспроизведения после экспорта
     if (previewVideoElement) previewVideoElement.play();
-    videoPreviewActive = true;
-    startVideoPreviewLoop();
   }
 
   mainBtn.disabled = false;
@@ -287,7 +288,6 @@ async function exportImage() {
   canvas.toBlob(blob => download(blob, `watermarked-${currentDownloadName}.png`), 'image/png');
 }
 
-// Улучшение: Проверка совместимости MIME-типов для MediaRecorder
 function getPreferredMimeType() {
     let mime = 'video/webm;codecs=vp9';
     if (MediaRecorder.isTypeSupported(mime)) return { mime, extension: 'webm' };
@@ -301,9 +301,8 @@ function getPreferredMimeType() {
 async function exportVideo() {
   const video = document.createElement('video');
   video.src = URL.createObjectURL(currentFile);
-  // Важно: видео не должно быть заглушено, чтобы захватить аудио
   video.muted = false; 
-  video.crossOrigin = 'anonymous'; // Необходимо для некоторых CORS-ограничений
+  video.crossOrigin = 'anonymous'; 
   await new Promise(r => video.onloadedmetadata = r);
 
   const canvas = document.createElement('canvas');
@@ -311,7 +310,6 @@ async function exportVideo() {
   canvas.height = video.videoHeight;
   const ctx = canvas.getContext('2d');
 
-  // Настройка захвата потока
   const preferred = getPreferredMimeType();
   const videoStream = canvas.captureStream(30); 
   const chunks = [];
@@ -320,7 +318,7 @@ async function exportVideo() {
   let recorder;
 
   try {
-      // Улучшение: Использование Web Audio API для сохранения аудио
+      // Использование Web Audio API для сохранения аудио
       audioContext = new (window.AudioContext || window.webkitAudioContext)();
       const videoSource = audioContext.createMediaElementSource(video);
       const audioDestination = audioContext.createMediaStreamDestination();
@@ -331,9 +329,9 @@ async function exportVideo() {
           ...audioDestination.stream.getAudioTracks()
       ]);
       
+      // Устанавливаем битрейт для качества
       recorder = new MediaRecorder(combinedStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
   } catch (e) {
-      // Предупреждение/обходной путь в случае ошибки AudioContext (например, запрет браузером)
       progress.style.color = 'orange';
       progress.textContent = 'Предупреждение: Не удалось захватить аудио. Видео будет сохранено без звука...';
       recorder = new MediaRecorder(videoStream, { mimeType: preferred.mime, videoBitsPerSecond: 5000000 });
@@ -341,10 +339,10 @@ async function exportVideo() {
 
   recorder.ondataavailable = e => chunks.push(e.data);
   recorder.onstop = () => {
-      if (audioContext) audioContext.close(); // Очистка
+      if (audioContext) audioContext.close(); 
       const fileName = `watermarked-${currentDownloadName}.${preferred.extension}`;
       download(new Blob(chunks, {type: preferred.mime}), fileName);
-      progress.style.color = ''; // Возврат цвета
+      progress.style.color = ''; 
   };
 
   const sizePct = DEFAULT_SIZE_PCT;
@@ -362,14 +360,16 @@ async function exportVideo() {
       return;
     }
     
-    // Улучшение: Индикация прогресса в реальном времени
+    // Индикация прогресса в реальном времени
     const percent = Math.round((video.currentTime / video.duration) * 100);
     progress.textContent = `⏳ Экспортируется... ${percent}%`;
 
+    // Однократный, но постоянный рендер кадра в контексте ЭКСПОРТА (этот цикл нужен для захвата видео!)
     ctx.clearRect(0, 0, canvas.width, canvas.height); 
     ctx.drawImage(video, 0, 0);
     drawCentered(ctx, watermark, sizePct, opacity, canvas);
     
+    // Используем requestAnimationFrame для синхронизации с браузером
     requestAnimationFrame(drawFrame); 
   };
   
@@ -381,7 +381,7 @@ function download(blob, name) {
   a.href = URL.createObjectURL(blob);
   a.download = name;
   a.click();
-  URL.revokeObjectURL(a.href); // Очистка
+  URL.revokeObjectURL(a.href); 
 }
 </script>
 </body>
